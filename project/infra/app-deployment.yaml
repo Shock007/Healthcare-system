@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: middleware-citus
+  namespace: citus
+spec:
+  replicas: 1  # número de replicas de la app que quieres correr
+  selector:
+    matchLabels:
+      app: middleware-citus
+  template:
+    metadata:
+      labels:
+        app: middleware-citus
+    spec:
+      containers:
+        - name: middleware-citus
+          image: middleware-citus:1.0  # la imagen que construiste previamente
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_HOST
+              value: citus-coordinator  # nombre del servicio del coordinador de Citus en Kubernetes
+            - name: DATABASE_NAME
+              value: postgres
+            - name: DATABASE_USER
+              value: postgres
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: citus-db-secret
+                  key: password  # nombre del secreto en Kubernetes
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: secret_key  # nombre del secreto en Kubernetes

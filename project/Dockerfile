@@ -4,8 +4,8 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # copiar solo ficheros necesarios
-COPY ./project/requirements.txt /app/requirements.txt
-COPY ./project/app /app/app
+COPY requirements.txt /app/requirements.txt
+COPY app /app/app
 
 RUN pip install --no-cache-dir -r requirements.txt
 

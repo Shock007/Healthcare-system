@@ -1,10 +1,10 @@
 # project/app/crud.py
 import os
-from fastapi import FastAPI, HTTPException, Depends
+# project/app/crud.py
 from app.database import get_db_connection
 from app.models import Paciente
+from fastapi import HTTPException
 
-# project/app/crud.py
 def obtener_paciente_por_id(paciente_id: int):
     try:
         conn = get_db_connection()
@@ -25,4 +25,3 @@ def obtener_paciente_por_id(paciente_id: int):
         return None
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener paciente: {e}")
-

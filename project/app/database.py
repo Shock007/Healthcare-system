@@ -1,25 +1,29 @@
 # project/app/database.py
+# project/app/database.py
 import os
-import psycopg2
+from psycopg2 import connect, OperationalError
 from psycopg2.extras import RealDictCursor
-from fastapi import HTTPException
+from dotenv import load_dotenv
 
-DB_HOST = os.getenv("DATABASE_HOST", "localhost")  # en k8s: citus-coordinator (o citus-coordinator.citus.svc.cluster.local)
-DB_NAME = os.getenv("DATABASE_NAME", "postgres")
-DB_USER = os.getenv("DATABASE_USER", "postgres")
-DB_PASSWORD = os.getenv("DATABASE_PASSWORD", "password")
-DB_PORT = int(os.getenv("DATABASE_PORT", 5432))
+load_dotenv(override=False)
+
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "citus-coordinator")
+POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
+POSTGRES_DB = os.getenv("POSTGRES_DB", "historiaclinica")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "citus")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "citus")
 
 def get_db_connection():
     try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT,
+        conn = connect(
+            host=POSTGRES_HOST,
+            port=POSTGRES_PORT,
+            dbname=POSTGRES_DB,
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
             cursor_factory=RealDictCursor
         )
         return conn
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al conectar con la base de datos: {e}")
+    except OperationalError as e:
+        raise RuntimeError(f"Error conectando a la BD: {e}")
+

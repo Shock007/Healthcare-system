@@ -3,8 +3,10 @@ kind: Deployment
 metadata:
   name: middleware-citus
   namespace: citus
+  labels:
+    app: middleware-citus
 spec:
-  replicas: 1  # número de replicas de la app que quieres correr
+  replicas: 1
   selector:
     matchLabels:
       app: middleware-citus
@@ -14,24 +16,66 @@ spec:
         app: middleware-citus
     spec:
       containers:
-        - name: middleware-citus
-          image: middleware-citus:1.0  # la imagen que construiste previamente
+        - name: middleware
+          image: middleware-citus:1.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           env:
-            - name: DATABASE_HOST
-              value: citus-coordinator  # nombre del servicio del coordinador de Citus en Kubernetes
-            - name: DATABASE_NAME
-              value: postgres
-            - name: DATABASE_USER
-              value: postgres
-            - name: DATABASE_PASSWORD
+            - name: POSTGRES_HOST
               valueFrom:
                 secretKeyRef:
-                  name: citus-db-secret
-                  key: password  # nombre del secreto en Kubernetes
+                  name: app-secrets
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: POSTGRES_PASSWORD
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: app-secret
-                  key: secret_key  # nombre del secreto en Kubernetes
+                  name: app-secrets
+                  key: SECRET_KEY
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: middleware-citus-service
+  namespace: citus
+spec:
+  selector:
+    app: middleware-citus
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP

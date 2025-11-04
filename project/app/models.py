@@ -1,11 +1,15 @@
 # project/app/models.py
 import os
-from fastapi import FastAPI, HTTPException, Depends
+# project/app/models.py
 from pydantic import BaseModel
+from typing import Optional
 
 class Paciente(BaseModel):
     id: int
-    documento_id: int
+    documento_id: str
     nombre: str
     apellido: str
-    fecha_nacimiento: str
+    fecha_nacimiento: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    correo: Optional[str] = None

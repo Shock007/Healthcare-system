@@ -7,9 +7,12 @@ import jwt
 from fastapi.security import OAuth2PasswordBearer
 from app.auth import obtener_token_desde_header
 import os
-from dotenv import load_dotenv
-load_dotenv()  # Esto carga las variables de entorno desde un archivo .env
 
+from dotenv import load_dotenv
+
+# Esto carga las variables de entorno desde un archivo .env
+#load_dotenv()
+load_dotenv(dotenv_path=".env", override=False)
 # Otras importaciones
 
 # Configuración de la base de datos

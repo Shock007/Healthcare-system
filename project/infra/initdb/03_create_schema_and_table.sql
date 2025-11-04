@@ -1,6 +1,9 @@
--- 01_create_pacientes.sql
--- Creación de la tabla pacientes (incluyendo documento_id en la clave primaria)
-CREATE TABLE IF NOT EXISTS gestion_medica.pacientes (
+-- 03_create_schema_and_table.sql
+\connect historiaclinica
+
+CREATE SCHEMA IF NOT EXISTS public;
+
+CREATE TABLE IF NOT EXISTS public.pacientes (
     id SERIAL,
     documento_id VARCHAR(20) NOT NULL,
     nombre VARCHAR(100) NOT NULL,
@@ -12,7 +15,6 @@ CREATE TABLE IF NOT EXISTS gestion_medica.pacientes (
     genero VARCHAR(10),
     tipo_sangre VARCHAR(5),
     fecha_registro TIMESTAMP DEFAULT NOW(),
-    PRIMARY KEY (documento_id, id) -- Asegurándonos de incluir la columna de partición
+    PRIMARY KEY (documento_id, id)
 );
-
 

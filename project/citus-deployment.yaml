@@ -31,7 +31,7 @@ spec:
         image: citusdata/citus:12.1
         env:
         - name: POSTGRES_PASSWORD
-          value: "citus"
+          value: "password"
         ports:
         - containerPort: 5432
 ---
@@ -68,6 +68,6 @@ spec:
         image: citusdata/citus:12.1
         env:
         - name: POSTGRES_PASSWORD
-          value: "citus"
+          value: "password"
         ports:
         - containerPort: 5432

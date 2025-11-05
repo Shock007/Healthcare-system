@@ -1,0 +1,62 @@
+[0;32m========================================[0m
+[0;32m  Historia Clínica Distribuida - Setup[0m
+[0;32m  Semana 1: Infraestructura + Middleware[0m
+[0;32m========================================[0m
+
+[1;33mEjecutando desde: raíz del repositorio[0m
+
+[1;33m[PASO 1][0m Verificando requisitos previos...
+[0;32m✓[0m Minikube instalado
+[0;32m✓[0m kubectl instalado
+[0;32m✓[0m Docker instalado
+[0;32m✓[0m Python3 instalado
+
+[1;33m[PASO 2][0m Iniciando Minikube...
+[0;32m✓[0m Minikube ya está corriendo
+
+[1;33m[PASO 3][0m Creando namespace...
+namespace/citus created
+[0;32m✓[0m Namespace 'citus' creado
+
+[1;33m[PASO 4][0m Desplegando Citus...
+service/citus-coordinator created
+deployment.apps/citus-coordinator created
+service/citus-worker created
+deployment.apps/citus-worker created
+Esperando a que los pods estén listos (esto puede tomar 1-2 minutos)...
+pod/citus-coordinator-769557dd4d-7lfrq condition met
+pod/citus-worker-77b4d587d4-cxhrt condition met
+pod/citus-worker-77b4d587d4-j9bsl condition met
+[0;32m✓[0m Citus desplegado correctamente
+
+[1;33m[PASO 5][0m Configurando base de datos...
+Pod coordinador: citus-coordinator-769557dd4d-7lfrq
+Esperando a que PostgreSQL esté listo...
+
+[0;34m>>> Creando base de datos historiaclinica...[0m
+[0;32m✓[0m BD creada
+
+[0;34m>>> Creando extensiones en historiaclinica...[0m
+CREATE EXTENSION
+CREATE EXTENSION
+[0;32m✓[0m Extensiones creadas
+
+[0;34m>>> Verificando extensión Citus...[0m
+                                     citus_version                                      
+----------------------------------------------------------------------------------------
+ Citus 12.1.6 on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+(1 row)
+
+
+[0;34m>>> Creando esquema y tabla pacientes...[0m
+[0;32m✓[0m Tabla pacientes creada
+
+[0;34m>>> Verificando que la tabla existe...[0m
+Did not find any relation named "public.pacientes".
+
+[0;34m>>> Distribuyendo tabla por documento_id...[0m
+ERROR:  relation "public.pacientes" does not exist
+LINE 1: SELECT create_distributed_table('public.pacientes', 'documen...
+                                        ^
+command terminated with exit code 1
+[0;31m✗[0m Error al distribuir tabla - Ver mensaje de error arriba

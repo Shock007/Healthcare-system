@@ -1,6 +1,7 @@
 #!/bin/bash
 # setup.sh - Script de configuración automática Semana 1
 # Historia Clínica Distribuida
+# VERSIÓN CORREGIDA - Se puede ejecutar desde raíz o desde project/
 
 set -e  # Salir si hay errores
 
@@ -30,7 +31,19 @@ print_error() {
 
 # Variables
 NAMESPACE="citus"
-PROJECT_DIR="project"
+
+# Detectar si estamos en project/ o en la raíz
+if [ -f "citus-deployment.yaml" ]; then
+    PROJECT_DIR="."
+    echo -e "${YELLOW}Ejecutando desde: project/${NC}"
+elif [ -f "project/citus-deployment.yaml" ]; then
+    PROJECT_DIR="project"
+    echo -e "${YELLOW}Ejecutando desde: raíz del repositorio${NC}"
+else
+    echo -e "${RED}Error: No se encuentra citus-deployment.yaml${NC}"
+    echo "Ejecuta este script desde la raíz del repositorio o desde project/"
+    exit 1
+fi
 
 # ==================== PASO 1: Verificar requisitos ====================
 print_step 1 "Verificando requisitos previos..."
@@ -66,6 +79,7 @@ print_step 4 "Desplegando Citus..."
 kubectl apply -f $PROJECT_DIR/citus-deployment.yaml
 
 echo "Esperando a que los pods estén listos (esto puede tomar 1-2 minutos)..."
+sleep 10  # Dar tiempo para que se creen los pods
 kubectl wait --for=condition=ready pod -l app=citus-coordinator -n $NAMESPACE --timeout=300s
 kubectl wait --for=condition=ready pod -l app=citus-worker -n $NAMESPACE --timeout=300s
 
@@ -78,14 +92,22 @@ COORDINATOR_POD=$(kubectl get pod -n $NAMESPACE -l app=citus-coordinator -o json
 
 echo "Pod coordinador: $COORDINATOR_POD"
 
+# Esperar a que PostgreSQL esté completamente listo
+echo "Esperando a que PostgreSQL esté listo..."
+sleep 5
+
 # Crear base de datos y extensiones
+echo "Creando base de datos historiaclinica..."
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -c "CREATE DATABASE historiaclinica;" 2>/dev/null || echo "BD ya existe"
+
+echo "Creando extensiones..."
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "CREATE EXTENSION IF NOT EXISTS citus;"
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 
 print_success "Extensiones creadas"
 
 # Crear esquema y tabla
+echo "Creando esquema y tabla..."
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica <<EOF
 CREATE SCHEMA IF NOT EXISTS public;
 
@@ -108,9 +130,11 @@ EOF
 print_success "Tabla pacientes creada"
 
 # Distribuir tabla
+echo "Distribuyendo tabla..."
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "SELECT create_distributed_table('public.pacientes', 'documento_id');" 2>/dev/null || print_success "Tabla ya distribuida"
 
 # Insertar datos de prueba
+echo "Insertando datos de prueba..."
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica <<EOF
 INSERT INTO public.pacientes (documento_id, nombre, apellido, fecha_nacimiento, telefono, direccion, correo, genero, tipo_sangre)
 VALUES
@@ -125,13 +149,21 @@ print_success "Datos de prueba insertados"
 # ==================== PASO 6: Construir imagen Docker ====================
 print_step 6 "Construyendo imagen Docker..."
 
-cd $PROJECT_DIR
+# Si PROJECT_DIR es ".", ya estamos en el directorio correcto
+if [ "$PROJECT_DIR" != "." ]; then
+    cd $PROJECT_DIR
+fi
+
 docker build -t middleware-citus:1.0 .
-cd ..
+
+if [ "$PROJECT_DIR" != "." ]; then
+    cd ..
+fi
 
 print_success "Imagen construida: middleware-citus:1.0"
 
 # Cargar en Minikube
+echo "Cargando imagen en Minikube..."
 minikube image load middleware-citus:1.0
 print_success "Imagen cargada en Minikube"
 
@@ -155,7 +187,8 @@ print_step 8 "Desplegando middleware FastAPI..."
 
 kubectl apply -f $PROJECT_DIR/infra/app-deployment.yaml
 
-echo "Esperando a que el middleware esté listo..."
+echo "Esperando a que el middleware esté listo (esto puede tomar 1-2 minutos)..."
+sleep 10
 kubectl wait --for=condition=ready pod -l app=middleware-citus -n $NAMESPACE --timeout=300s
 
 print_success "Middleware desplegado"
@@ -173,7 +206,7 @@ echo -e "\n${YELLOW}Verificando datos en BD:${NC}"
 kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "SELECT COUNT(*) as total_pacientes FROM public.pacientes;"
 
 echo -e "\n${YELLOW}Verificando distribución:${NC}"
-kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "SELECT * FROM citus_tables;"
+kubectl exec -n $NAMESPACE $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "SELECT * FROM citus_tables;" || echo "Verificar manualmente con: kubectl exec -it -n citus <pod> -- psql -U postgres -d historiaclinica"
 
 # ==================== PASO 10: Instrucciones finales ====================
 print_step 10 "Configuración completa!"
@@ -185,13 +218,22 @@ echo -e "${GREEN}========================================${NC}\n"
 echo -e "${YELLOW}Para acceder a la API:${NC}"
 echo "  kubectl port-forward -n $NAMESPACE service/middleware-citus-service 8000:8000"
 echo ""
-echo -e "${YELLOW}Luego probar:${NC}"
+echo -e "${YELLOW}Luego, en otra terminal, probar:${NC}"
 echo "  curl http://localhost:8000/health"
 echo ""
 echo -e "${YELLOW}Para obtener un token:${NC}"
 echo '  curl -X POST http://localhost:8000/token \'
 echo '    -H "Content-Type: application/json" \'
 echo '    -d '"'"'{"username":"admin","password":"admin"}'"'"
+echo ""
+echo -e "${YELLOW}Para ejecutar las pruebas automatizadas:${NC}"
+if [ "$PROJECT_DIR" = "." ]; then
+    echo "  chmod +x test_api.sh"
+    echo "  ./test_api.sh"
+else
+    echo "  chmod +x project/test_api.sh"
+    echo "  ./project/test_api.sh"
+fi
 echo ""
 echo -e "${YELLOW}Para ver logs del middleware:${NC}"
 echo "  kubectl logs -n $NAMESPACE -l app=middleware-citus -f"

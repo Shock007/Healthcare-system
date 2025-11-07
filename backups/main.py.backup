@@ -6,12 +6,13 @@ from app.schemas import (
     AuthRequest,
     PacienteResponse,
     PacienteCreate,
+    PacienteUpdate,
     FHIRSyncResponse
 )
 from app.auth import generar_jwt, validar_jwt
 from app.fhir_client import get_fhir_client, FHIRClient
 from psycopg2.extras import RealDictCursor
-from typing import List
+from typing import List, Optional
 
 app = FastAPI(
     title="Middleware HC - Citus + FHIR",
@@ -23,7 +24,7 @@ app = FastAPI(
 
 @app.get("/", tags=["Sistema"])
 def read_root():
-    """Endpoint raíz"""
+    """Endpoint raíz para verificar que la API está funcionando"""
     return {
         "message": "Bienvenido a la API de Historia Clínica Distribuida con FHIR",
         "version": "2.0.0",
@@ -33,8 +34,9 @@ def read_root():
 
 @app.get("/health", tags=["Sistema"])
 def health_check():
-    """Health check con estado FHIR"""
+    """Verifica el estado de la API, base de datos y servidor FHIR"""
     try:
+        # Verificar base de datos
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT 1")
@@ -44,7 +46,7 @@ def health_check():
     except Exception as e:
         db_status = f"error: {str(e)}"
 
-    # Verificar FHIR
+    # Verificar servidor FHIR
     fhir = get_fhir_client()
     fhir_status = fhir.test_connection()
 
@@ -56,7 +58,13 @@ def health_check():
 
 @app.post("/token", tags=["Autenticación"])
 def login_for_token(auth: AuthRequest):
-    """Genera token JWT"""
+    """
+    Genera un token JWT para autenticación.
+
+    Credenciales de prueba:
+    - username: admin
+    - password: admin
+    """
     if auth.username == "admin" and auth.password == "admin":
         token = generar_jwt({
             "sub": auth.username,
@@ -72,7 +80,7 @@ def login_for_token(auth: AuthRequest):
         detail="Credenciales inválidas"
     )
 
-# ==================== ENDPOINTS PROTEGIDOS ====================
+# ==================== ENDPOINTS PROTEGIDOS - PACIENTES ====================
 
 @app.get("/paciente/{paciente_id}",
          response_model=PacienteResponse,
@@ -81,7 +89,10 @@ def obtener_paciente(
     paciente_id: int,
     payload: dict = Depends(validar_jwt)
 ):
-    """Obtiene paciente por ID"""
+    """
+    Obtiene los datos de un paciente por ID local.
+    Requiere autenticación JWT.
+    """
     conn = None
     try:
         conn = get_db_connection()
@@ -124,7 +135,10 @@ def listar_pacientes(
     payload: dict = Depends(validar_jwt),
     limit: int = 10
 ):
-    """Lista pacientes"""
+    """
+    Lista todos los pacientes (con límite).
+    Requiere autenticación JWT.
+    """
     conn = None
     try:
         conn = get_db_connection()
@@ -161,7 +175,10 @@ def crear_paciente(
     paciente: PacienteCreate,
     payload: dict = Depends(validar_jwt)
 ):
-    """Crea nuevo paciente"""
+    """
+    Crea un nuevo paciente en la base de datos local.
+    Requiere autenticación JWT.
+    """
     conn = None
     try:
         conn = get_db_connection()
@@ -213,9 +230,13 @@ def sincronizar_paciente_a_fhir(
     paciente_id: int,
     payload: dict = Depends(validar_jwt)
 ):
-    """Sincroniza paciente a FHIR"""
+    """
+    Sincroniza un paciente local al servidor FHIR.
+    Crea o actualiza el recurso Patient en FHIR.
+    """
     conn = None
     try:
+        # Obtener paciente local
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -238,21 +259,30 @@ def sincronizar_paciente_a_fhir(
         paciente_data = dict(row)
         fhir = get_fhir_client()
 
-        result = fhir.create_patient(paciente_data)
-        fhir_id = result["fhir_id"]
+        # Si ya tiene FHIR ID, actualizar; sino, crear
+        if paciente_data.get("fhir_id"):
+            result = fhir.update_patient(paciente_data["fhir_id"], paciente_data)
+            fhir_id = paciente_data["fhir_id"]
+            message = "Paciente actualizado en FHIR"
+        else:
+            result = fhir.create_patient(paciente_data)
+            fhir_id = result["fhir_id"]
 
-        # Actualizar FHIR ID
-        cur.execute("""
-            UPDATE public.pacientes
-            SET fhir_id = %s
-            WHERE id = %s
-        """, (fhir_id, paciente_id))
-        conn.commit()
+            # Actualizar FHIR ID en base de datos local
+            cur.execute("""
+                UPDATE public.pacientes
+                SET fhir_id = %s
+                WHERE id = %s
+            """, (fhir_id, paciente_id))
+            conn.commit()
+
+            message = "Paciente creado en FHIR"
+
         cur.close()
 
         return FHIRSyncResponse(
             success=True,
-            message="Paciente sincronizado a FHIR",
+            message=message,
             fhir_id=fhir_id,
             local_id=paciente_id
         )
@@ -265,6 +295,136 @@ def sincronizar_paciente_a_fhir(
         raise HTTPException(
             status_code=500,
             detail=f"Error al sincronizar con FHIR: {str(e)}"
+        )
+    finally:
+        if conn:
+            conn.close()
+
+@app.get("/fhir/patient/{fhir_id}",
+         tags=["FHIR"])
+def obtener_paciente_fhir(
+    fhir_id: str,
+    payload: dict = Depends(validar_jwt)
+):
+    """
+    Obtiene un paciente directamente del servidor FHIR.
+    Retorna el recurso FHIR Patient completo.
+    """
+    fhir = get_fhir_client()
+    return fhir.get_patient(fhir_id)
+
+@app.get("/fhir/search",
+         tags=["FHIR"])
+def buscar_pacientes_fhir(
+    nombre: str = None,
+    apellido: str = None,
+    documento: str = None,
+    payload: dict = Depends(validar_jwt)
+):
+    """
+    Busca pacientes en el servidor FHIR.
+
+    Parámetros:
+    - nombre: Nombre del paciente
+    - apellido: Apellido del paciente
+    - documento: Número de documento (identifier)
+    """
+    fhir = get_fhir_client()
+
+    search_params = {}
+    if nombre:
+        search_params["given"] = nombre
+    if apellido:
+        search_params["family"] = apellido
+    if documento:
+        search_params["identifier"] = documento
+
+    if not search_params:
+        raise HTTPException(
+            status_code=400,
+            detail="Debe proporcionar al menos un parámetro de búsqueda"
+        )
+
+    patients = fhir.search_patients(**search_params)
+
+    return {
+        "total": len(patients),
+        "patients": patients
+    }
+
+@app.post("/fhir/import/{fhir_id}",
+          response_model=PacienteResponse,
+          tags=["FHIR"])
+def importar_desde_fhir(
+    fhir_id: str,
+    payload: dict = Depends(validar_jwt)
+):
+    """
+    Importa un paciente desde FHIR a la base de datos local.
+    """
+    conn = None
+    try:
+        fhir = get_fhir_client()
+
+        # Obtener paciente de FHIR
+        fhir_patient = fhir.get_patient(fhir_id)
+
+        # Convertir a formato local
+        paciente_data = fhir.fhir_to_paciente(fhir_patient)
+        paciente_data["fhir_id"] = fhir_id
+
+        # Verificar si ya existe
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT id FROM public.pacientes
+            WHERE fhir_id = %s OR documento_id = %s
+        """, (fhir_id, paciente_data.get("documento_id")))
+
+        existing = cur.fetchone()
+
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="Paciente ya existe en la base de datos local"
+            )
+
+        # Insertar paciente
+        cur.execute("""
+            INSERT INTO public.pacientes
+            (documento_id, nombre, apellido, fecha_nacimiento,
+             telefono, direccion, correo, genero, fhir_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, documento_id, nombre, apellido,
+                      fecha_nacimiento, telefono, direccion, correo,
+                      genero, tipo_sangre, fhir_id
+        """, (
+            paciente_data.get("documento_id"),
+            paciente_data.get("nombre"),
+            paciente_data.get("apellido"),
+            paciente_data.get("fecha_nacimiento"),
+            paciente_data.get("telefono"),
+            paciente_data.get("direccion"),
+            paciente_data.get("correo"),
+            paciente_data.get("genero"),
+            fhir_id
+        ))
+
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+
+        return PacienteResponse(**row)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al importar desde FHIR: {str(e)}"
         )
     finally:
         if conn:

@@ -1,4 +1,6 @@
 # project/app/models.py
+import os
+# project/app/models.py
 from pydantic import BaseModel
 from typing import Optional
 
@@ -13,4 +15,4 @@ class Paciente(BaseModel):
     correo: Optional[str] = None
     genero: Optional[str] = None
     tipo_sangre: Optional[str] = None
-    fhir_id: Optional[str] = None
+    fhir_id: Optional[str] = None  # Nuevo: ID en servidor FHIR

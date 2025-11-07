@@ -4,5 +4,7 @@ psycopg2-binary==2.9.10
 pyjwt==2.8.0
 pydantic
 python-dotenv==1.0.1
-requests==2.31.0
+
+# FHIR Dependencies
 fhirclient==4.1.0
+requests==2.31.0

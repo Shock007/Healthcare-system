@@ -13,3 +13,6 @@ class Paciente(BaseModel):
     telefono: Optional[str] = None
     direccion: Optional[str] = None
     correo: Optional[str] = None
+    genero: Optional[str] = None
+    tipo_sangre: Optional[str] = None
+    fhir_id: Optional[str] = None  # Nuevo: ID en servidor FHIR

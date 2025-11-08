@@ -20,6 +20,7 @@ class HTTPBearerCustom(HTTPBearer):
     cuando no se proporciona el header de autorización.
     """
     async def __call__(self, request) -> Optional[HTTPAuthorizationCredentials]:
+        #          ^^^^^^ IMPORTANTE: Doble guion bajo al inicio y al final
         try:
             return await super().__call__(request)
         except HTTPException as e:

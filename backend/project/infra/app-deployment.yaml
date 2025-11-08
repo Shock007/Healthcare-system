@@ -18,7 +18,7 @@ spec:
       containers:
         - name: middleware
           image: middleware-citus:1.0
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never  # ⚠️ CAMBIO CRÍTICO
           ports:
             - containerPort: 8000
           env:

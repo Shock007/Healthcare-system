@@ -1,6 +1,7 @@
 #!/bin/bash
 # test_api.sh - Script de pruebas automatizadas
 # Historia Clínica Distribuida - Semana 1
+# VERSIÓN CORREGIDA
 
 set -e
 
@@ -55,8 +56,8 @@ fi
 echo -e "${GREEN}✓${NC} Token obtenido exitosamente"
 echo "Token (primeros 20 caracteres): ${TOKEN:0:20}..."
 
-# Test 3: Obtener paciente sin token (debe fallar)
-echo -e "\n${YELLOW}[TEST 4]${NC} Probando endpoint protegido sin token (debe fallar)..."
+# Test 3: Obtener paciente sin token (debe fallar con 401)
+echo -e "\n${YELLOW}[TEST 4]${NC} Probando endpoint protegido sin token (debe fallar con 401)..."
 NO_AUTH_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$API_URL/paciente/1")
 HTTP_CODE=$(echo "$NO_AUTH_RESPONSE" | grep "HTTP_CODE" | cut -d':' -f2)
 
@@ -64,6 +65,8 @@ if [ "$HTTP_CODE" = "401" ]; then
     echo -e "${GREEN}✓${NC} Correctamente rechazado (401 Unauthorized)"
 else
     echo -e "${RED}✗${NC} Se esperaba código 401, se obtuvo $HTTP_CODE"
+    echo "Respuesta completa:"
+    echo "$NO_AUTH_RESPONSE" | grep -v "HTTP_CODE"
 fi
 
 # Test 4: Obtener paciente con token
@@ -96,8 +99,8 @@ PATIENTS_LIST=$(curl -s "$API_URL/pacientes" \
 PATIENT_COUNT=$(echo "$PATIENTS_LIST" | grep -o '"id":[0-9]*' | wc -l)
 echo -e "${GREEN}✓${NC} Se encontraron $PATIENT_COUNT pacientes"
 
-# Test 6: Obtener paciente inexistente
-echo -e "\n${YELLOW}[TEST 7]${NC} Probando con paciente inexistente..."
+# Test 6: Obtener paciente inexistente (debe retornar 404)
+echo -e "\n${YELLOW}[TEST 7]${NC} Probando con paciente inexistente (debe retornar 404)..."
 NOT_FOUND_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$API_URL/paciente/9999" \
   -H "Authorization: Bearer $TOKEN")
 HTTP_CODE=$(echo "$NOT_FOUND_RESPONSE" | grep "HTTP_CODE" | cut -d':' -f2)
@@ -108,8 +111,8 @@ else
     echo -e "${RED}✗${NC} Se esperaba código 404, se obtuvo $HTTP_CODE"
 fi
 
-# Test 7: Token inválido
-echo -e "\n${YELLOW}[TEST 8]${NC} Probando con token inválido..."
+# Test 7: Token inválido (debe retornar 401)
+echo -e "\n${YELLOW}[TEST 8]${NC} Probando con token inválido (debe retornar 401)..."
 INVALID_TOKEN_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$API_URL/paciente/1" \
   -H "Authorization: Bearer token_invalido_123")
 HTTP_CODE=$(echo "$INVALID_TOKEN_RESPONSE" | grep "HTTP_CODE" | cut -d':' -f2)
@@ -120,8 +123,8 @@ else
     echo -e "${RED}✗${NC} Se esperaba código 401, se obtuvo $HTTP_CODE"
 fi
 
-# Test 8: Credenciales incorrectas
-echo -e "\n${YELLOW}[TEST 9]${NC} Probando login con credenciales incorrectas..."
+# Test 8: Credenciales incorrectas (debe retornar 401)
+echo -e "\n${YELLOW}[TEST 9]${NC} Probando login con credenciales incorrectas (debe retornar 401)..."
 BAD_CREDS_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "$API_URL/token" \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"wrongpassword"}')
@@ -138,11 +141,15 @@ echo -e "\n${GREEN}========================================${NC}"
 echo -e "${GREEN}  ✓ TODAS LAS PRUEBAS COMPLETADAS${NC}"
 echo -e "${GREEN}========================================${NC}\n"
 
-echo -e "${YELLOW}Resumen:${NC}"
-echo "  ✓ Health check funcional"
-echo "  ✓ Autenticación JWT operativa"
-echo "  ✓ Endpoints protegidos correctamente"
-echo "  ✓ CRUD de pacientes funcional"
-echo "  ✓ Manejo de errores apropiado"
+echo -e "${YELLOW}Resumen de Tests:${NC}"
+echo "  ✓ TEST 1: API disponible"
+echo "  ✓ TEST 2: Health check funcional"
+echo "  ✓ TEST 3: Autenticación JWT operativa"
+echo "  ✓ TEST 4: Endpoints protegidos sin token (401)"
+echo "  ✓ TEST 5: Obtención de paciente con token"
+echo "  ✓ TEST 6: Listado de pacientes"
+echo "  ✓ TEST 7: Paciente inexistente (404)"
+echo "  ✓ TEST 8: Token inválido (401)"
+echo "  ✓ TEST 9: Credenciales incorrectas (401)"
 
-echo -e "\n${GREEN}Sistema listo para Semana 2!${NC}\n"
+echo -e "\n${GREEN}¡Sistema listo para Semana 2!${NC}\n"

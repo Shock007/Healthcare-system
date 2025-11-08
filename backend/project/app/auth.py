@@ -1,4 +1,4 @@
-# project/app/auth.py
+# project/app/auth.py - VERSIÓN CORREGIDA
 import os
 from datetime import datetime, timedelta
 from typing import Optional
@@ -18,20 +18,57 @@ class HTTPBearerCustom(HTTPBearer):
     """
     HTTPBearer personalizado que retorna 401 en lugar de 403
     cuando no se proporciona el header de autorización.
+
+    CRÍTICO: __call__ debe ser una función SÍNCRONA, no async.
     """
-    async def __call__(self, request) -> Optional[HTTPAuthorizationCredentials]:
-        #          ^^^^^^ IMPORTANTE: Doble guion bajo al inicio y al final
+    def __call__(self, request) -> Optional[HTTPAuthorizationCredentials]:
+        """
+        Método síncrono (sin async) para manejar la autenticación.
+
+        IMPORTANTE: No usar 'async def' aquí, FastAPI espera una función síncrona.
+        """
         try:
-            return await super().__call__(request)
-        except HTTPException as e:
-            # Cambiar código 403 a 401
-            if e.status_code == 403:
+            # Llamar al método padre de forma síncrona
+            from fastapi import Request
+            from starlette.requests import Request as StarletteRequest
+
+            # Obtener el header Authorization
+            authorization = request.headers.get("Authorization")
+
+            if not authorization:
                 raise HTTPException(
                     status_code=401,
-                    detail="Falta header Authorization o token inválido",
+                    detail="Falta header Authorization",
                     headers={"WWW-Authenticate": "Bearer"}
                 )
-            raise e
+
+            # Verificar formato "Bearer <token>"
+            scheme, _, credentials = authorization.partition(" ")
+
+            if scheme.lower() != "bearer":
+                raise HTTPException(
+                    status_code=401,
+                    detail="Esquema de autenticación inválido. Use 'Bearer <token>'",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+
+            if not credentials:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token faltante",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+
+            return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=401,
+                detail=f"Error en autenticación: {str(e)}",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
 
 
 # Instancia del manejador personalizado

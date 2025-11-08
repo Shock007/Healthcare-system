@@ -1,14 +1,22 @@
 # project/app/main.py - VERSIÓN FINAL SEMANA 1
 import os
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.database import get_db_connection
 from app.models import Paciente
 from app.schemas import AuthRequest, PacienteResponse
-from app.auth import generar_jwt, get_current_user
+from app.auth import generar_jwt
 from psycopg2.extras import RealDictCursor
+import jwt
 from dotenv import load_dotenv
 
 load_dotenv(override=False)
+
+# Configurar esquema de seguridad para Swagger
+security = HTTPBearer(
+    scheme_name="JWT Bearer Token",
+    description="Ingresa el token JWT en formato: Bearer <token>"
+)
 
 app = FastAPI(
     title="🏥 Historia Clínica Distribuida - API",
@@ -109,7 +117,6 @@ def read_root():
         }
     }
 
-
 @app.get(
     "/health",
     tags=["Sistema"],
@@ -156,7 +163,6 @@ def health_check():
             status_code=503,
             detail=f"Database connection failed: {str(e)}"
         )
-
 
 @app.post(
     "/token",
@@ -227,7 +233,6 @@ def login_for_token(auth: AuthRequest):
         detail="Credenciales inválidas. Usa username: 'admin', password: 'admin'"
     )
 
-
 # ==================== ENDPOINTS PROTEGIDOS ====================
 
 @app.get(
@@ -239,7 +244,7 @@ def login_for_token(auth: AuthRequest):
 )
 def obtener_paciente(
     paciente_id: int,
-    current_user: dict = Depends(get_current_user)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """
     ## Obtener Información de un Paciente
@@ -282,6 +287,18 @@ def obtener_paciente(
     - **404:** Paciente no encontrado
     - **500:** Error de base de datos
     """
+    # Validar token
+    token = credentials.credentials
+    SECRET_KEY = os.getenv("SECRET_KEY", "20240902734")
+    ALGORITHM = os.getenv("ALGORITHM", "HS256")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
     conn = None
     try:
         conn = get_db_connection()
@@ -289,8 +306,7 @@ def obtener_paciente(
 
         cur.execute("""
             SELECT id, documento_id, nombre, apellido,
-                   fecha_nacimiento, telefono, direccion, correo,
-                   genero, tipo_sangre, fhir_id
+                   fecha_nacimiento, telefono, direccion, correo
             FROM public.pacientes
             WHERE id = %s
         """, (paciente_id,))
@@ -312,10 +328,7 @@ def obtener_paciente(
             fecha_nacimiento=str(row['fecha_nacimiento']) if row['fecha_nacimiento'] else None,
             telefono=row.get('telefono'),
             direccion=row.get('direccion'),
-            correo=row.get('correo'),
-            genero=row.get('genero'),
-            tipo_sangre=row.get('tipo_sangre'),
-            fhir_id=row.get('fhir_id')
+            correo=row.get('correo')
         )
 
     except HTTPException:
@@ -329,7 +342,6 @@ def obtener_paciente(
         if conn:
             conn.close()
 
-
 @app.get(
     "/pacientes",
     response_model=list[PacienteResponse],
@@ -338,7 +350,7 @@ def obtener_paciente(
     response_description="Lista de pacientes"
 )
 def listar_pacientes(
-    current_user: dict = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     limit: int = 10
 ):
     """
@@ -394,6 +406,18 @@ def listar_pacientes(
     - Los resultados se ordenan por ID ascendente
     - En Semana 2 se añadirá paginación completa
     """
+    # Validar token
+    token = credentials.credentials
+    SECRET_KEY = os.getenv("SECRET_KEY", "20240902734")
+    ALGORITHM = os.getenv("ALGORITHM", "HS256")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expirado")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
     conn = None
     try:
         conn = get_db_connection()
@@ -401,8 +425,7 @@ def listar_pacientes(
 
         cur.execute("""
             SELECT id, documento_id, nombre, apellido,
-                   fecha_nacimiento, telefono, direccion, correo,
-                   genero, tipo_sangre, fhir_id
+                   fecha_nacimiento, telefono, direccion, correo
             FROM public.pacientes
             ORDER BY id
             LIMIT %s
@@ -420,10 +443,7 @@ def listar_pacientes(
                 fecha_nacimiento=str(row['fecha_nacimiento']) if row['fecha_nacimiento'] else None,
                 telefono=row.get('telefono'),
                 direccion=row.get('direccion'),
-                correo=row.get('correo'),
-                genero=row.get('genero'),
-                tipo_sangre=row.get('tipo_sangre'),
-                fhir_id=row.get('fhir_id')
+                correo=row.get('correo')
             )
             for row in rows
         ]

@@ -1,22 +1,18 @@
-# project/app/main.py - VERSIÓN FINAL SEMANA 1
+# project/app/main.py - VERSIÓN CORREGIDA SEMANA 1
 import os
 from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials
 from app.database import get_db_connection
 from app.models import Paciente
 from app.schemas import AuthRequest, PacienteResponse
-from app.auth import generar_jwt
+from app.auth import generar_jwt, security  # ⚠️ IMPORTAR security desde auth.py
 from psycopg2.extras import RealDictCursor
 import jwt
 from dotenv import load_dotenv
 
 load_dotenv(override=False)
 
-# Configurar esquema de seguridad para Swagger
-security = HTTPBearer(
-    scheme_name="JWT Bearer Token",
-    description="Ingresa el token JWT en formato: Bearer <token>"
-)
+# ⚠️ NO redefinir security aquí, ya está importado desde app.auth
 
 app = FastAPI(
     title="🏥 Historia Clínica Distribuida - API",

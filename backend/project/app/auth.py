@@ -1,9 +1,10 @@
-# project/app/auth.py - VERSIÓN CORREGIDA V2
+# project/app/auth.py - VERSIÓN DEFINITIVA V3
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security.http import HTTPBase
 import jwt
 from dotenv import load_dotenv
 
@@ -13,8 +14,64 @@ SECRET_KEY = os.getenv("SECRET_KEY", "cambia_esto_en_produccion")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
-# Usar HTTPBearer estándar (sin personalización)
-security = HTTPBearer()
+
+class HTTPBearerFixed(HTTPBearer):
+    """
+    Clase HTTPBearer personalizada que retorna 401 en lugar de 403.
+
+    SOLUCIÓN AL PROBLEMA:
+    FastAPI's HTTPBearer estándar retorna 403 cuando no hay Authorization header.
+    Esta clase sobrescribe ese comportamiento para retornar 401 (correcto según RFC 7235).
+    """
+
+    async def __call__(
+        self,
+        request: Request
+    ) -> Optional[HTTPAuthorizationCredentials]:
+        """
+        Extrae y valida el token del header Authorization.
+
+        Retorna 401 en lugar de 403 cuando falta el header.
+        """
+        # Obtener header Authorization
+        authorization = request.headers.get("Authorization")
+
+        # Si no hay header, retornar 401 (no 403)
+        if not authorization:
+            raise HTTPException(
+                status_code=401,
+                detail="Falta header Authorization",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        # Separar esquema y credenciales
+        scheme, _, credentials = authorization.partition(" ")
+
+        # Verificar esquema Bearer
+        if scheme.lower() != "bearer":
+            raise HTTPException(
+                status_code=401,
+                detail="Esquema de autenticación inválido. Use 'Bearer <token>'",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        # Verificar que hay credenciales
+        if not credentials:
+            raise HTTPException(
+                status_code=401,
+                detail="Token faltante",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
+        # Retornar credenciales
+        return HTTPAuthorizationCredentials(
+            scheme=scheme,
+            credentials=credentials
+        )
+
+
+# Instancia del manejador personalizado
+security = HTTPBearerFixed()
 
 
 def generar_jwt(data: dict) -> str:
@@ -65,13 +122,10 @@ def validar_jwt_token(token: str) -> dict:
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials
 ) -> dict:
     """
     Dependency para obtener el usuario actual desde el token JWT.
-
-    IMPORTANTE: Esta función maneja automáticamente el caso donde no hay token,
-    convirtiendo el 403 de HTTPBearer en un 401 apropiado.
 
     Args:
         credentials: Credenciales HTTP Bearer extraídas del header
@@ -80,7 +134,7 @@ def get_current_user(
         dict: Payload del token validado
 
     Raises:
-        HTTPException: Si el token es inválido o falta
+        HTTPException: Si el token es inválido
     """
     if not credentials:
         raise HTTPException(
@@ -91,33 +145,3 @@ def get_current_user(
 
     token = credentials.credentials
     return validar_jwt_token(token)
-
-
-def require_auth(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
-) -> dict:
-    """
-    Dependency alternativo que convierte automáticamente 403 en 401.
-
-    Usa Optional para capturar el caso donde HTTPBearer retornaría 403,
-    y lo convierte en 401 que es el código HTTP correcto.
-
-    Args:
-        credentials: Credenciales HTTP Bearer (opcional)
-
-    Returns:
-        dict: Payload del token validado
-
-    Raises:
-        HTTPException: 401 si falta token o es inválido
-    """
-    if credentials is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Falta header Authorization",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    return get_current_user(credentials)
-
-

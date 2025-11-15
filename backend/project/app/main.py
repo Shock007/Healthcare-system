@@ -109,48 +109,135 @@ def root():
     }
 
 
+# Agregar este endpoint en app/main.py
+# Reemplaza el health_check existente
+
 @app.get(
     "/health",
     tags=["Sistema"],
     summary="🏥 Estado del sistema"
 )
 def health_check():
-    """Verifica el estado de la API y la base de datos"""
+    """
+    Verifica el estado de la API y la base de datos.
+    Retorna información detallada de conectividad.
+    """
+    from datetime import datetime
+
+    health_status = {
+        "timestamp": datetime.now().isoformat(),
+        "api": "operativa",
+        "base_datos": {
+            "estado": "desconocido",
+            "detalles": None,
+            "error": None
+        },
+        "configuracion": {
+            "host": os.getenv("POSTGRES_HOST", "localhost"),
+            "port": os.getenv("POSTGRES_PORT", "5432"),
+            "database": os.getenv("POSTGRES_DB", "historiaclinica")
+        }
+    }
+
+    # Intentar conexión a base de datos
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Verificar conexión a BD
-        cur.execute("SELECT 1")
+        # Test 1: Verificar conexión
+        cur.execute("SELECT 1 as test")
+        test_result = cur.fetchone()
 
-        # Verificar tablas
+        # Test 2: Verificar versión
+        cur.execute("SELECT version()")
+        version_result = cur.fetchone()
+
+        # Test 3: Verificar tablas
         cur.execute("""
-            SELECT COUNT(*) FROM information_schema.tables
+            SELECT COUNT(*) as count FROM information_schema.tables
             WHERE table_schema = 'public'
             AND table_name IN ('usuarios', 'pacientes')
         """)
-        tables_count = cur.fetchone()[0]
+        tables_result = cur.fetchone()
+        tables_count = tables_result['count']
 
-        # Verificar distribución Citus
-        cur.execute("SELECT COUNT(*) FROM citus_tables WHERE table_name::text = 'pacientes'")
-        distributed = cur.fetchone()[0] > 0
+        # Test 4: Verificar distribución Citus
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM citus_tables
+            WHERE table_name::text = 'pacientes'
+        """)
+        citus_result = cur.fetchone()
+        distributed = citus_result['count'] > 0
+
+        # Test 5: Contar registros
+        cur.execute("SELECT COUNT(*) as count FROM public.usuarios")
+        users_count = cur.fetchone()['count']
+
+        cur.execute("SELECT COUNT(*) as count FROM public.pacientes")
+        patients_count = cur.fetchone()['count']
 
         cur.close()
-        conn.close()
 
-        return {
-            "estado": "saludable",
-            "base_datos": "conectada",
-            "tablas_necesarias": tables_count == 2,
+        health_status["base_datos"] = {
+            "estado": "conectada",
+            "version": version_result['version'][:50] + "...",
+            "tablas_requeridas": tables_count == 2,
             "distribucion_citus": distributed,
-            "timestamp": "2025-01-15T12:00:00Z"
+            "datos": {
+                "usuarios": users_count,
+                "pacientes": patients_count
+            },
+            "detalles": "Todas las verificaciones pasaron exitosamente",
+            "error": None
         }
-    except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Error de conexión a BD: {str(e)}"
-        )
 
+        # Determinar estado general
+        if tables_count == 2 and distributed:
+            health_status["estado"] = "saludable"
+            status_code = 200
+        else:
+            health_status["estado"] = "degradado"
+            health_status["advertencias"] = []
+            if tables_count != 2:
+                health_status["advertencias"].append("Faltan tablas requeridas")
+            if not distributed:
+                health_status["advertencias"].append("Tabla pacientes no está distribuida")
+            status_code = 200
+
+    except RuntimeError as e:
+        # Error de conexión detallado
+        health_status["base_datos"] = {
+            "estado": "error_conexion",
+            "detalles": str(e),
+            "error": "No se pudo establecer conexión con PostgreSQL"
+        }
+        health_status["estado"] = "no_saludable"
+        status_code = 503
+
+    except Exception as e:
+        # Error inesperado
+        health_status["base_datos"] = {
+            "estado": "error",
+            "detalles": str(e),
+            "error": f"Error inesperado: {type(e).__name__}"
+        }
+        health_status["estado"] = "no_saludable"
+        status_code = 503
+
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+
+    # Retornar respuesta con código apropiado
+    if status_code == 503:
+        raise HTTPException(status_code=503, detail=health_status)
+
+    return health_status
 
 # ==================== AUTENTICACIÓN ====================
 

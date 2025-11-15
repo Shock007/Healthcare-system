@@ -1,0 +1,85 @@
+[0;32m================================================================[0m
+[0;32m  🏥 SISTEMA DE HISTORIA CLÍNICA DISTRIBUIDA[0m
+[0;32m  📦 Instalación Completa - Versión Final[0m
+[0;32m================================================================[0m
+
+[1;33m📁 Ejecutando desde: raíz del repositorio[0m
+
+[1;33m[PASO 1][0m [0;36mVerificando requisitos previos[0m
+[0;32m✓[0m Minikube instalado
+[0;32m✓[0m kubectl instalado
+[0;32m✓[0m Docker instalado
+[0;32m✓[0m Python3 instalado
+
+[1;33m[PASO 2][0m [0;36mIniciando Minikube[0m
+* minikube v1.37.0 on Arch  (vbox/amd64)
+* Using the docker driver based on existing profile
+* Starting "minikube" primary control-plane node in "minikube" cluster
+* Pulling base image v0.0.48 ...
+* Verifying Kubernetes components...
+  - Using image gcr.io/k8s-minikube/storage-provisioner:v5
+* Enabled addons: storage-provisioner, default-storageclass
+* Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+[0;32m✓[0m Minikube iniciado
+
+[1;33m[PASO 3][0m [0;36mConfigurando namespace[0m
+[1;33m⚠[0m Namespace 'citus' ya existe. ¿Desea eliminarlo y recrearlo? (y/N)
+
+namespace "citus" deleted
+namespace/citus created
+[0;32m✓[0m Namespace 'citus' recreado
+
+[1;33m[PASO 4][0m [0;36mDesplegando Citus (coordinator + 2 workers)[0m
+service/citus-coordinator created
+deployment.apps/citus-coordinator created
+service/citus-worker created
+deployment.apps/citus-worker created
+⏳ Esperando a que los pods estén listos (puede tardar 1-2 minutos)...
+pod/citus-coordinator-769557dd4d-sdmpv condition met
+pod/citus-worker-77b4d587d4-4hwd7 condition met
+pod/citus-worker-77b4d587d4-fkv96 condition met
+[0;32m✓[0m Citus desplegado correctamente
+
+[1;33m[PASO 5][0m [0;36mConfigurando base de datos PostgreSQL + Citus[0m
+[0;34mℹ[0m Pod coordinador: citus-coordinator-769557dd4d-sdmpv
+⏳ Esperando a que PostgreSQL esté listo...
+
+[0;34m>>> Creando base de datos historiaclinica...[0m
+NOTICE:  Citus partially supports CREATE DATABASE for distributed databases
+DETAIL:  Citus does not propagate CREATE DATABASE command to workers
+HINT:  You can manually create a database and its extensions on workers.
+CREATE DATABASE
+[0;32m✓[0m Base de datos verificada
+
+[0;34m>>> Instalando extensiones (citus, pgcrypto)...[0m
+CREATE EXTENSION
+CREATE EXTENSION
+[0;32m✓[0m Extensiones instaladas
+
+[0;34m>>> Creando tabla de usuarios...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+[0;32m✓[0m Tabla usuarios creada
+
+[0;34m>>> Insertando usuarios de prueba...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+INSERT 0 7
+[0;32m✓[0m 7 usuarios de prueba insertados
+
+[0;34m>>> Creando tabla pacientes (57 campos)...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+psql:/tmp/create_pacientes.sql:3: NOTICE:  table "pacientes" does not exist, skipping
+DROP TABLE
+psql:/tmp/create_pacientes.sql:77: ERROR:  generation expression is not immutable
+psql:/tmp/create_pacientes.sql:79: ERROR:  relation "public.pacientes" does not exist
+psql:/tmp/create_pacientes.sql:80: ERROR:  relation "public.pacientes" does not exist
+psql:/tmp/create_pacientes.sql:81: ERROR:  relation "public.pacientes" does not exist
+[0;32m✓[0m Tabla pacientes creada (57 campos)
+
+[0;34m>>> Distribuyendo tabla pacientes en Citus...[0m
+ERROR:  relation "public.pacientes" does not exist
+LINE 1: SELECT create_distributed_table('public.pacientes', 'numero_...
+                                        ^
+command terminated with exit code 1

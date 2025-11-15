@@ -1,8 +1,27 @@
+# backend/project/requirements.txt
+# Dependencias del Sistema de Historia Clínica Distribuida
+
+# FastAPI y servidor
 fastapi==0.120.4
 uvicorn==0.18.3
+
+# Base de datos
 psycopg2-binary==2.9.10
+
+# Autenticación y seguridad
 pyjwt==2.8.0
-pydantic
+bcrypt==4.0.1
+
+# Validación de datos
+pydantic==2.5.0
+pydantic[email]==2.5.0
+
+# Variables de entorno
 python-dotenv==1.0.1
-requests==2.31.0
-fhirclient==4.1.0
+
+# Generación de PDFs
+WeasyPrint==60.1
+Jinja2==3.1.2
+
+# Utilidades
+python-multipart==0.0.6

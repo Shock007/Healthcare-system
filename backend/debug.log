@@ -1,0 +1,152 @@
+[0;32m================================================================[0m
+[0;32m  🏥 SISTEMA DE HISTORIA CLÍNICA DISTRIBUIDA[0m
+[0;32m  📦 Instalación Completa - Versión Final[0m
+[0;32m================================================================[0m
+
+[1;33m📁 Ejecutando desde: raíz del repositorio[0m
+
+[1;33m[PASO 1][0m [0;36mVerificando requisitos previos[0m
+[0;32m✓[0m Minikube instalado
+[0;32m✓[0m kubectl instalado
+[0;32m✓[0m Docker instalado
+[0;32m✓[0m Python3 instalado
+
+[1;33m[PASO 2][0m [0;36mIniciando Minikube[0m
+[0;32m✓[0m Minikube ya está corriendo
+
+[1;33m[PASO 3][0m [0;36mConfigurando namespace[0m
+[1;33m⚠[0m Namespace 'citus' ya existe. ¿Desea eliminarlo y recrearlo? (y/N)
+
+namespace "citus" deleted
+namespace/citus created
+[0;32m✓[0m Namespace 'citus' recreado
+
+[1;33m[PASO 4][0m [0;36mDesplegando Citus (coordinator + 2 workers)[0m
+service/citus-coordinator created
+deployment.apps/citus-coordinator created
+service/citus-worker created
+deployment.apps/citus-worker created
+⏳ Esperando a que los pods estén listos (puede tardar 1-2 minutos)...
+pod/citus-coordinator-769557dd4d-mh4bh condition met
+pod/citus-worker-77b4d587d4-9mm2g condition met
+pod/citus-worker-77b4d587d4-np75v condition met
+[0;32m✓[0m Citus desplegado correctamente
+
+[1;33m[PASO 5][0m [0;36mConfigurando base de datos PostgreSQL + Citus[0m
+[0;34mℹ[0m Pod coordinador: citus-coordinator-769557dd4d-mh4bh
+⏳ Esperando a que PostgreSQL esté listo...
+
+[0;34m>>> Creando base de datos historiaclinica...[0m
+NOTICE:  Citus partially supports CREATE DATABASE for distributed databases
+DETAIL:  Citus does not propagate CREATE DATABASE command to workers
+HINT:  You can manually create a database and its extensions on workers.
+CREATE DATABASE
+[0;32m✓[0m Base de datos verificada
+
+[0;34m>>> Instalando extensiones (citus, pgcrypto)...[0m
+CREATE EXTENSION
+CREATE EXTENSION
+[0;32m✓[0m Extensiones instaladas
+
+[0;34m>>> Creando tabla de usuarios...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+[0;32m✓[0m Tabla usuarios creada
+
+[0;34m>>> Insertando usuarios de prueba...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+INSERT 0 7
+[0;32m✓[0m 7 usuarios de prueba insertados
+
+[0;34m>>> Creando tabla pacientes (57 campos)...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+psql:/tmp/create_pacientes.sql:3: NOTICE:  table "pacientes" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+[0;32m✓[0m Tabla pacientes creada (57 campos)
+
+[0;34m>>> Distribuyendo tabla pacientes en Citus...[0m
+ create_distributed_table 
+--------------------------
+ 
+(1 row)
+
+[0;32m✓[0m Tabla distribuida por numero_documento
+
+[0;34m>>> Insertando pacientes de prueba...[0m
+You are now connected to database "historiaclinica" as user "postgres".
+INSERT 0 3
+[0;32m✓[0m 3 pacientes de prueba insertados
+
+[0;34m>>> Verificando datos insertados...[0m
+ total_usuarios 
+----------------
+              7
+(1 row)
+
+ total_pacientes 
+-----------------
+               3
+(1 row)
+
+ table_name | citus_table_type | distribution_column | colocation_id | table_size | shard_count | table_owner | access_method 
+------------+------------------+---------------------+---------------+------------+-------------+-------------+---------------
+ pacientes  | distributed      | numero_documento    |             1 | 1632 kB    |          32 | postgres    | heap
+(1 row)
+
+
+[1;33m[PASO 6][0m [0;36mConstruyendo imagen Docker del middleware[0m
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 409B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.10-slim
+#2 DONE 0.9s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 160B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 330B done
+#4 DONE 0.0s
+
+#5 [1/5] FROM docker.io/library/python:3.10-slim@sha256:975a1e200a16719060d391eea4ac66ee067d709cc22a32f4ca4737731eae36c0
+#5 resolve docker.io/library/python:3.10-slim@sha256:975a1e200a16719060d391eea4ac66ee067d709cc22a32f4ca4737731eae36c0 0.0s done
+#5 DONE 0.0s
+
+#6 [2/5] WORKDIR /app
+#6 CACHED
+
+#7 [3/5] COPY requirements.txt /app/requirements.txt
+#7 CACHED
+
+#8 [4/5] RUN pip install --no-cache-dir -r /app/requirements.txt
+#8 CACHED
+
+#9 [5/5] COPY app /app/app
+#9 CACHED
+
+#10 exporting to image
+#10 exporting layers done
+#10 writing image sha256:b230d7d6839f476a70b61dc7739336a254fed0015d40653b84aee6c64d430d23 done
+#10 naming to docker.io/library/middleware-citus:1.0 done
+#10 DONE 0.0s
+[0;32m✓[0m Imagen construida
+[0;32m✓[0m Imagen cargada en Minikube
+
+[1;33m[PASO 7][0m [0;36mCreando secrets de Kubernetes[0m
+secret/app-secrets created
+[0;32m✓[0m Secrets configurados
+
+[1;33m[PASO 8][0m [0;36mDesplegando middleware FastAPI[0m
+deployment.apps/middleware-citus created
+service/middleware-citus-service created
+error: timed out waiting for the condition on pods/middleware-citus-7b8c5fd77b-9tkjs

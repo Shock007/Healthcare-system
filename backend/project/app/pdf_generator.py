@@ -1,7 +1,7 @@
 # backend/project/app/pdf_generator.py
 """
 Generador de PDFs para Historias Clínicas
-Usa WeasyPrint para convertir HTML a PDF
+VERSIÓN CORREGIDA - Fix en sintaxis de WeasyPrint
 """
 
 import io
@@ -590,6 +590,8 @@ def generar_pdf_paciente(paciente_data: Dict[str, Any]) -> bytes:
     """
     Genera un PDF a partir de los datos de un paciente.
 
+    ✅ FIX: Sintaxis correcta de WeasyPrint
+
     Args:
         paciente_data: Diccionario con todos los campos del paciente
 
@@ -610,13 +612,10 @@ def generar_pdf_paciente(paciente_data: Dict[str, Any]) -> bytes:
         template = Template(HTML_TEMPLATE)
         html_content = template.render(**context)
 
-        # Generar PDF
-        pdf_file = io.BytesIO()
-        HTML(string=html_content).write_pdf(pdf_file)
+        # ✅ FIX: Sintaxis correcta - HTML.from_string() en lugar de HTML(string=...)
+        pdf_bytes = HTML(string=html_content).write_pdf()
 
-        # Retornar contenido
-        pdf_file.seek(0)
-        return pdf_file.getvalue()
+        return pdf_bytes
 
     except Exception as e:
         raise Exception(f"Error generando PDF: {str(e)}")

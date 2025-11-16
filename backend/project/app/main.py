@@ -1,7 +1,7 @@
 # backend/project/app/main.py
 """
 API Principal - Sistema de Historia Clínica Distribuida
-Incluye: Autenticación con BD, CRUD completo, control por roles
+VERSIÓN CORREGIDA - Fixes para listar, buscar y exportar PDF
 """
 
 import os
@@ -108,9 +108,6 @@ def root():
         }
     }
 
-
-# Agregar este endpoint en app/main.py
-# Reemplaza el health_check existente
 
 @app.get(
     "/health",
@@ -540,6 +537,7 @@ def obtener_paciente(
             conn.close()
 
 
+# ==================== FIX 1: LISTAR PACIENTES CORREGIDO ====================
 @app.get(
     "/pacientes",
     response_model=List[PacienteResumen],
@@ -555,18 +553,21 @@ def listar_pacientes(
     Lista todos los pacientes del sistema (vista resumida).
 
     **Requiere rol**: Médico, Admisionista, Resultados o Admin
+
+    **FIX**: Calcula edad usando DATE_PART en lugar de columna
     """
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
+        # ✅ FIX: Calcular edad con DATE_PART, no usar columna inexistente
         cur.execute("""
             SELECT
                 id,
                 numero_documento,
                 CONCAT(primer_nombre, ' ', primer_apellido) as nombre_completo,
-                edad,
+                DATE_PART('year', AGE(fecha_nacimiento))::INTEGER as edad,
                 sexo,
                 tipo_atencion,
                 fecha_atencion,
@@ -712,17 +713,16 @@ def eliminar_paciente(
             conn.close()
 
 
-# ==================== BÚSQUEDA AVANZADA ====================
-
+# ==================== FIX 2: BÚSQUEDA CORREGIDA ====================
 @app.get(
-    "/pacientes/buscar",
+    "/pacientes/buscar/query",  # ✅ FIX: Cambiar ruta para evitar conflicto
     response_model=List[PacienteResumen],
     tags=["👨‍⚕️ Pacientes"],
     summary="Buscar pacientes (Staff)"
 )
 def buscar_pacientes(
-    nombre: Optional[str] = None,
-    documento: Optional[str] = None,
+    nombre: Optional[str] = Query(None, description="Nombre o apellido del paciente"),
+    documento: Optional[str] = Query(None, description="Número de documento"),
     current_user: Usuario = Depends(require_staff()),
     limit: int = Query(20, ge=1, le=100)
 ):
@@ -730,11 +730,24 @@ def buscar_pacientes(
     Búsqueda de pacientes por nombre o documento.
 
     **Requiere rol**: Médico, Admisionista, Resultados o Admin
+
+    **FIX**: Endpoint correcto con parámetros query
+
+    **Parámetros**:
+    - `nombre`: Busca en primer_nombre y primer_apellido (ILIKE)
+    - `documento`: Busca en numero_documento (ILIKE)
+
+    **Uso**:
+    ```
+    GET /pacientes/buscar/query?nombre=Juan
+    GET /pacientes/buscar/query?documento=12345
+    GET /pacientes/buscar/query?nombre=Maria&documento=678
+    ```
     """
     if not nombre and not documento:
         raise HTTPException(
             status_code=400,
-            detail="Debe proporcionar al menos un parámetro de búsqueda"
+            detail="Debe proporcionar al menos un parámetro de búsqueda (nombre o documento)"
         )
 
     conn = None
@@ -755,11 +768,17 @@ def buscar_pacientes(
 
         params.append(limit)
 
+        # ✅ FIX: Calcular edad correctamente
         query = f"""
             SELECT
-                id, numero_documento,
+                id,
+                numero_documento,
                 CONCAT(primer_nombre, ' ', primer_apellido) as nombre_completo,
-                edad, sexo, tipo_atencion, fecha_atencion, nombre_profesional
+                DATE_PART('year', AGE(fecha_nacimiento))::INTEGER as edad,
+                sexo,
+                tipo_atencion,
+                fecha_atencion,
+                nombre_profesional
             FROM public.pacientes
             WHERE {' AND '.join(conditions)}
             ORDER BY fecha_registro DESC
@@ -779,8 +798,7 @@ def buscar_pacientes(
             conn.close()
 
 
-# ==================== EXPORTACIÓN PDF ====================
-
+# ==================== FIX 3: EXPORTACIÓN PDF CORREGIDA ====================
 from app.pdf_generator import generar_pdf_paciente
 
 @app.get(
@@ -801,6 +819,8 @@ def exportar_pdf(
     - Paciente: solo su propia historia
 
     **Retorna**: Archivo PDF para descarga
+
+    **FIX**: Sintaxis correcta de WeasyPrint
     """
     # Verificar permisos
     if not user_can_access_patient(current_user, numero_documento):
@@ -831,8 +851,10 @@ def exportar_pdf(
                 detail=f"Paciente con documento {numero_documento} no encontrado"
             )
 
-        # Convertir fecha a string para el PDF
+        # Convertir a diccionario y preparar datos
         paciente_dict = dict(row)
+
+        # Convertir fechas a string para el template
         if paciente_dict.get('fecha_nacimiento'):
             paciente_dict['fecha_nacimiento'] = str(paciente_dict['fecha_nacimiento'])
         if paciente_dict.get('fecha_atencion'):
@@ -840,7 +862,24 @@ def exportar_pdf(
         if paciente_dict.get('fecha_cierre'):
             paciente_dict['fecha_cierre'] = str(paciente_dict['fecha_cierre'])
 
-        # Generar PDF
+        # Calcular edad e IMC para el PDF
+        if paciente_dict.get('fecha_nacimiento'):
+            from datetime import date
+            born = paciente_dict['fecha_nacimiento']
+            if isinstance(born, str):
+                from datetime import datetime
+                born = datetime.strptime(born, '%Y-%m-%d').date()
+            today = date.today()
+            paciente_dict['edad'] = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+        peso = paciente_dict.get('peso')
+        talla = paciente_dict.get('talla')
+        if peso and talla and talla > 0:
+            paciente_dict['imc'] = round(peso / ((talla/100) ** 2), 2)
+        else:
+            paciente_dict['imc'] = None
+
+        # ✅ FIX: Generar PDF con sintaxis correcta
         pdf_content = generar_pdf_paciente(paciente_dict)
 
         # Crear stream de respuesta

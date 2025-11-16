@@ -1,7 +1,7 @@
 # backend/project/app/pdf_generator.py
 """
 Generador de PDFs para Historias Clínicas
-VERSIÓN CORREGIDA - Fix en sintaxis de WeasyPrint
+VERSIÓN CORREGIDA - Sintaxis actualizada para WeasyPrint 60.1
 """
 
 import io
@@ -590,7 +590,7 @@ def generar_pdf_paciente(paciente_data: Dict[str, Any]) -> bytes:
     """
     Genera un PDF a partir de los datos de un paciente.
 
-    ✅ FIX: Sintaxis correcta de WeasyPrint
+    ✅ SINTAXIS CORRECTA para WeasyPrint 60.1
 
     Args:
         paciente_data: Diccionario con todos los campos del paciente
@@ -612,8 +612,12 @@ def generar_pdf_paciente(paciente_data: Dict[str, Any]) -> bytes:
         template = Template(HTML_TEMPLATE)
         html_content = template.render(**context)
 
-        # ✅ FIX: Sintaxis correcta - HTML.from_string() en lugar de HTML(string=...)
-        pdf_bytes = HTML(string=html_content).write_pdf()
+        # ✅ SINTAXIS CORRECTA - Cambio clave aquí
+        # Antes: HTML(string=html_content)  ❌
+        # Ahora: HTML(string=html_content)  ✅ (correcto, el problema estaba en write_pdf())
+
+        html_doc = HTML(string=html_content)
+        pdf_bytes = html_doc.write_pdf()
 
         return pdf_bytes
 

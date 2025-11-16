@@ -1,3 +1,17 @@
+# backend/project/infra/app-deployment-nodeport.yaml
+# ==============================================================================
+# DEPLOYMENT CON NODEPORT - Acceso desde Red Local
+# ==============================================================================
+# Este archivo configura el middleware para ser accesible desde la red local
+# sin necesidad de kubectl port-forward.
+#
+# Características:
+# - NodePort en puerto 30800 (fijo, para facilitar acceso)
+# - Probes optimizados para detección rápida de fallas
+# - Recursos limitados para entornos de desarrollo
+# - Configuración lista para pruebas desde cualquier dispositivo
+# ==============================================================================
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,8 +19,15 @@ metadata:
   namespace: citus
   labels:
     app: middleware-citus
+    version: "2.0"
+    tier: backend
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: middleware-citus
@@ -14,13 +35,19 @@ spec:
     metadata:
       labels:
         app: middleware-citus
+        version: "2.0"
+        tier: backend
     spec:
       containers:
         - name: middleware
           image: middleware-citus:1.0
-          imagePullPolicy: Never
+          imagePullPolicy: Never  # Usar imagen local de Minikube
           ports:
-            - containerPort: 8000
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # ==================== VARIABLES DE ENTORNO ====================
           env:
             - name: POSTGRES_HOST
               valueFrom:
@@ -62,18 +89,45 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: ACCESS_TOKEN_EXPIRE_MINUTES
+
+          # ==================== HEALTH CHECKS ====================
+          # Probe de Preparación: ¿Está listo para recibir tráfico?
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
+              scheme: HTTP
             initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+
+          # Probe de Vida: ¿Sigue funcionando?
           livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+
+          # Probe de Inicio: ¿Ya arrancó?
+          startupProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 15
-            periodSeconds: 20
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 12  # 60 segundos máximo (12 x 5s)
+
+          # ==================== RECURSOS ====================
           resources:
             requests:
               memory: "256Mi"
@@ -82,18 +136,50 @@ spec:
               memory: "512Mi"
               cpu: "500m"
 
+          # ==================== SEGURIDAD ====================
+          securityContext:
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
 ---
+# ==============================================================================
+# SERVICE: NodePort
+# ==============================================================================
+# Expone el middleware en un puerto fijo (30800) accesible desde la red local
+# ==============================================================================
+
 apiVersion: v1
 kind: Service
 metadata:
   name: middleware-citus-service
   namespace: citus
+  labels:
+    app: middleware-citus
+    tier: backend
+  annotations:
+    description: "API de Historia Clínica - Acceso Red Local"
 spec:
   type: NodePort
   selector:
     app: middleware-citus
   ports:
-    - protocol: TCP
-      port: 8000
-      targetPort: 8000
-      nodePort: 30800  # Puerto accesible desde red local
+    - name: http
+      protocol: TCP
+      port: 8000           # Puerto dentro del cluster
+      targetPort: 8000     # Puerto del contenedor
+      nodePort: 30800      # Puerto externo fijo (30000-32767)
+
+  # ==================== CONFIGURACIÓN DE TRÁFICO ====================
+  # Cluster: Balancea entre todos los pods (default)
+  # Local: Mantiene el origen del cliente (mejor para debugging)
+  externalTrafficPolicy: Cluster
+
+  # Mantener sesiones pegajosas (útil para JWT)
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 horas

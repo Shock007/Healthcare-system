@@ -1,0 +1,15 @@
+Sistema de Historia Clínica - Información de Acceso NodePort
+================================================================
+
+URLs de Acceso:
+- Base URL:     http://192.168.49.2:30800
+- Health Check: http://192.168.49.2:30800/health
+- Swagger UI:   http://192.168.49.2:30800/docs
+- ReDoc:        http://192.168.49.2:30800/redoc
+
+Usuarios de Prueba:
+- Admin:    admin / admin
+- Médico:   dr_rodriguez / password123
+- Paciente: paciente_juan / password123
+
+Fecha de configuración: Sun Nov 16 10:52:25 PM UTC 2025

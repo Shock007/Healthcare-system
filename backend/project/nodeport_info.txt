@@ -12,4 +12,4 @@ Usuarios de Prueba:
 - Médico:   dr_rodriguez / password123
 - Paciente: paciente_juan / password123
 
-Fecha de configuración: Mon Nov 17 05:08:39 AM UTC 2025
+Fecha de configuración: Tue Nov 18 10:03:23 PM UTC 2025

@@ -635,16 +635,7 @@ curl http://localhost:8000/pacientes/12345/pdf \
 
 ---
 
-## 🧪 Pruebas y Verificación
 
-### Tests Automatizados
-
-El sistema incluye un script completo de tests:
-
-```bash
-chmod +x test_api.sh
-./test_api.sh
-```
 
 **Cubre 20+ escenarios:**
 
@@ -722,9 +713,8 @@ Historia-Clinica-Distribuida/
 │       ├── setup.sh                 # Script instalación completa ⚡
 │       ├── enable_nodeport.sh       # Configurar NodePort
 │       ├── expose_to_network.sh     # Exponer a host
-│       ├── expose_to_real_network.sh # Exponer a red real
-│       ├── test_api.sh              # Tests automatizados
-│       └── test_nodeport.sh         # Tests de conectividad
+│       └── expose_to_real_network.sh # Exponer a red real
+│      
 │
 ├── frontend/                        # (En desarrollo por frontend team)
 │   ├── templates/

@@ -1,4 +1,4 @@
-# 🏥 Sistema de Historia Clínica Distribuida
+# 🏥 Sistema de Historia Clínica Electrónica Distribuida
 
 > Sistema integral de gestión de historias clínicas electrónicas con arquitectura distribuida, autenticación por roles y exportación a PDF
 
@@ -6,41 +6,75 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Citus_12.1-336791?logo=postgresql)](https://www.citusdata.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes)](https://minikube.sigs.k8s.io/)
 [![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-2.3.3-000000?logo=flask)](https://flask.palletsprojects.com/)
 
 ---
 
 ## 📋 Tabla de Contenidos
 
+- [Descripción del Proyecto](#-descripción-del-proyecto)
 - [Características Principales](#-características-principales)
 - [Arquitectura del Sistema](#-arquitectura-del-sistema)
 - [Requisitos Previos](#-requisitos-previos)
 - [Instalación y Despliegue](#-instalación-y-despliegue)
-- [Configuración de Acceso a Red](#-configuración-de-acceso-a-red)
+- [Configuración de Acceso](#-configuración-de-acceso)
 - [Uso del Sistema](#-uso-del-sistema)
 - [Autenticación y Roles](#-autenticación-y-roles)
 - [API Endpoints](#-api-endpoints)
 - [Exportación a PDF](#-exportación-a-pdf)
-- [Pruebas y Verificación](#-pruebas-y-verificación)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Troubleshooting](#-troubleshooting)
 - [Documentación Técnica](#-documentación-técnica)
+- [Troubleshooting](#-troubleshooting)
+
+---
+
+## 🎯 Descripción del Proyecto
+
+**Sistema de Historia Clínica Electrónica Distribuida** es una solución completa para la gestión de historias clínicas médicas, diseñada con arquitectura de microservicios y base de datos distribuida. El sistema permite el acceso seguro desde cualquier dispositivo (escritorio, tablet, smartphone) mediante autenticación OAuth2 + JWT, con control de acceso basado en roles y exportación de historias clínicas en formato PDF.
+
+### 🎓 Contexto Académico
+
+Este proyecto fue desarrollado como parte de la asignatura **"Arquitectura y Diseño de Sistemas Distribuidos Seguros para la Gestión de Historias Clínicas Electrónicas mediante Middleware y Estándares HL7"**, implementando las mejores prácticas en:
+
+- Arquitectura distribuida con fragmentación de datos
+- Seguridad mediante OAuth2 + JWT
+- Orquestación con Kubernetes
+- Patrones de diseño de microservicios
+- Control de acceso basado en roles (RBAC)
 
 ---
 
 ## ✨ Características Principales
 
-### 🎯 Funcionalidades Implementadas
+### 🎯 Funcionalidades Core
 
-- **✅ Base de Datos Distribuida**: PostgreSQL + Citus con fragmentación automática por `numero_documento` (32 shards)
-- **✅ API REST Completa**: FastAPI con validación de datos mediante Pydantic
-- **✅ Sistema de Roles**: 5 roles diferenciados (Admin, Médico, Admisionista, Resultados, Paciente)
-- **✅ Autenticación Segura**: JWT con tokens de 30 minutos + bcrypt para contraseñas
-- **✅ CRUD Completo**: Crear, leer, actualizar y eliminar pacientes con control de acceso
-- **✅ Exportación a PDF**: Generación de historias clínicas en formato PDF con WeasyPrint
-- **✅ Acceso desde Red Local**: Configuración NodePort para acceso desde cualquier dispositivo
-- **✅ 57 Campos de Historia Clínica**: Modelo completo según estándares médicos colombianos
-- **✅ Despliegue en Kubernetes**: Orquestación con Minikube para alta disponibilidad
-- **✅ Documentación Interactiva**: Swagger UI y ReDoc integrados
+- ✅ **Base de Datos Distribuida**: PostgreSQL + Citus con fragmentación por `numero_documento` (32 shards)
+- ✅ **API REST Completa**: FastAPI con validación Pydantic y documentación automática
+- ✅ **Sistema de Roles**: 5 roles diferenciados con permisos granulares
+- ✅ **Autenticación Robusta**: OAuth2 + JWT con tokens de 30 minutos + bcrypt
+- ✅ **CRUD Completo**: Operaciones sobre pacientes con control de acceso
+- ✅ **Exportación PDF**: Generación de historias clínicas con WeasyPrint
+- ✅ **Acceso Multi-dispositivo**: Desde red local (smartphones, tablets, PCs)
+- ✅ **57 Campos Clínicos**: Modelo completo según estándares colombianos
+- ✅ **Orquestación**: Kubernetes (Minikube) con alta disponibilidad
+- ✅ **Interfaces Gráficas**: 7 vistas HTML diferenciadas por rol
+
+### 🛡️ Seguridad
+
+- 🔐 Autenticación con base de datos usando bcrypt
+- 🔑 Tokens JWT con expiración configurable
+- 👥 Control de acceso basado en roles (RBAC)
+- 📝 Validación de permisos por endpoint
+- 🔒 Secrets de Kubernetes para credenciales sensibles
+- 🚫 Protección contra acceso no autorizado
+
+### 🌐 Accesibilidad
+
+- 📱 Acceso desde dispositivos móviles en red local
+- 💻 Interfaz web responsiva con Bootstrap 5
+- 🔗 NodePort configurado para acceso externo
+- 📡 Port forwarding automático para red local
+- ⚡ Configuración automatizada con scripts
 
 ---
 
@@ -52,7 +86,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                   CAPA DE PRESENTACIÓN                       │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐  │
-│  │Swagger UI│  │  ReDoc   │  │  Dispositivos Móviles    │  │
+│  │Swagger UI│  │  ReDoc   │  │  Interfaces Web (Flask)  │  │
 │  └────┬─────┘  └────┬─────┘  └────────────┬─────────────┘  │
 │       └─────────────┴──────────────────────┘                │
 │                       │ HTTP/REST                            │
@@ -64,16 +98,15 @@
 │  │         FastAPI Middleware (Python 3.10)            │    │
 │  │  ┌──────────┐  ┌──────────┐  ┌───────────────┐     │    │
 │  │  │   JWT    │  │   CRUD   │  │  WeasyPrint   │     │    │
-│  │  │   Auth   │  │  Roles   │  │  PDF Export   │     │    │
+│  │  │  OAuth2  │  │  + RBAC  │  │  PDF Export   │     │    │
 │  │  └──────────┘  └──────────┘  └───────────────┘     │    │
 │  │                                                      │    │
 │  │  Endpoints Principales:                             │    │
-│  │  • POST /token → Autenticación con BD               │    │
+│  │  • POST /token → Autenticación                      │    │
 │  │  • GET /me → Usuario actual                         │    │
-│  │  • GET /pacientes → Listar (protegido por rol)      │    │
-│  │  • POST /pacientes → Crear (Admisionista/Médico)    │    │
-│  │  • GET /pacientes/{doc}/pdf → Exportar PDF          │    │
-│  │  • GET /usuarios → Gestión usuarios (Admin)         │    │
+│  │  • GET /pacientes → Listar (RBAC)                   │    │
+│  │  • POST /pacientes → Crear                          │    │
+│  │  • GET /pacientes/{doc}/pdf → Exportar              │    │
 │  └──────────────────────────────────────────────────────┘   │
 │                       │ psycopg2                             │
 └───────────────────────┼─────────────────────────────────────┘
@@ -83,8 +116,8 @@
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │       Citus Coordinator (PostgreSQL 12.1)           │    │
 │  │                                                      │    │
-│  │  Tablas Principales:                                │    │
-│  │  • usuarios (7 registros de prueba)                 │    │
+│  │  Tablas:                                            │    │
+│  │  • usuarios (con bcrypt)                            │    │
 │  │  • pacientes (57 campos, distribuida, 32 shards)    │    │
 │  │                                                      │    │
 │  │  Extensiones: citus, pgcrypto                       │    │
@@ -92,7 +125,6 @@
 │          │                             │                     │
 │    ┌─────▼──────┐              ┌──────▼─────┐              │
 │    │  Worker 1  │              │  Worker 2  │              │
-│    │  (Replica) │              │  (Replica) │              │
 │    └────────────┘              └────────────┘              │
 └─────────────────────────────────────────────────────────────┘
                         │
@@ -107,14 +139,7 @@
 │  │  • middleware-service      • middleware (1 pod)     │    │
 │  │    (NodePort: 30800)                                │    │
 │  │                                                      │    │
-│  │  Secrets: app-secrets (DB creds, JWT key)          │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              Docker Engine                          │    │
-│  │  Images:                                            │    │
-│  │  • citusdata/citus:12.1                            │    │
-│  │  • middleware-citus:1.0                            │    │
+│  │  Secrets: app-secrets (credenciales cifradas)      │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -136,8 +161,7 @@
      │                                   │ 3. Generar JWT      │
      │                                   └──────────┬──────────┘
      │                                              │
-     │  200 OK                                      │
-     │  {access_token, user}                        │
+     │  200 OK + {access_token, user}               │
      │<─────────────────────────────────────────────┤
      │                                              │
      │  GET /pacientes                              │
@@ -150,73 +174,25 @@
      │                                   │ 3. Ejecutar query   │
      │                                   └──────────┬──────────┘
      │                                              │
-     │  200 OK                                      │
-     │  [{paciente1}, {paciente2}...]               │
+     │  200 OK + [{pacientes}]                      │
      │<─────────────────────────────────────────────┤
-     │                                              │
 ```
 
-### 🗄️ Esquema de Base de Datos
+### 🗄️ Fragmentación de Datos en Citus
 
-#### Tabla: `usuarios`
+**Estrategia**: Fragmentación por `numero_documento` (hash distribution)
 
+**Justificación**:
+- ✅ Alta cardinalidad (cada documento es único)
+- ✅ Distribución uniforme entre workers
+- ✅ Consultas por documento son muy frecuentes
+- ✅ Evita hot spots y cuellos de botella
+
+**Configuración**:
 ```sql
-CREATE TABLE public.usuarios (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,      -- bcrypt hash
-    rol VARCHAR(20) NOT NULL,                 -- admin, medico, admisionista, resultados, paciente
-    nombres VARCHAR(200),
-    apellidos VARCHAR(200),
-    documento_vinculado VARCHAR(20),          -- Si es paciente, referencia a historia
-    activo BOOLEAN DEFAULT TRUE,
-    fecha_creacion TIMESTAMP DEFAULT NOW(),
-    ultimo_acceso TIMESTAMP
-);
-```
-
-#### Tabla: `pacientes` (57 campos, distribuida)
-
-```sql
-CREATE TABLE public.pacientes (
-    id SERIAL,
-    -- Identificación (23 campos)
-    tipo_documento VARCHAR(20) NOT NULL,
-    numero_documento VARCHAR(20) NOT NULL UNIQUE,
-    primer_apellido VARCHAR(100) NOT NULL,
-    segundo_apellido VARCHAR(100),
-    primer_nombre VARCHAR(100) NOT NULL,
-    segundo_nombre VARCHAR(100),
-    fecha_nacimiento DATE NOT NULL,
-    sexo VARCHAR(10) NOT NULL,
-    genero VARCHAR(50),
-    grupo_sanguineo VARCHAR(5),
-    factor_rh VARCHAR(10),
-    estado_civil VARCHAR(20),
-    direccion_residencia TEXT,
-    municipio VARCHAR(100),
-    departamento VARCHAR(100),
-    telefono VARCHAR(20),
-    celular VARCHAR(20),
-    correo_electronico VARCHAR(100),
-    ocupacion VARCHAR(100),
-    entidad VARCHAR(100),
-    regimen_afiliacion VARCHAR(50),
-    tipo_usuario VARCHAR(50),
-    -- Atención (17 campos)
-    fecha_atencion TIMESTAMP DEFAULT NOW(),
-    tipo_atencion VARCHAR(50),
-    motivo_consulta TEXT,
-    enfermedad_actual TEXT,
-    -- ... (total 57 campos)
-    PRIMARY KEY (numero_documento, id)
-);
-
--- Distribución en Citus
 SELECT create_distributed_table('public.pacientes', 'numero_documento');
+-- Resultado: 32 shards distribuidos entre coordinator y 2 workers
 ```
-
-**Fragmentación**: 32 shards distribuidos automáticamente entre coordinator y workers.
 
 ---
 
@@ -238,9 +214,9 @@ SELECT create_distributed_table('public.pacientes', 'numero_documento');
 |---------|--------|-------------|
 | **CPU** | 4 cores | 8 cores |
 | **RAM** | 4 GB | 8 GB |
-| **Disco** | 10 GB | 20 GB |
+| **Disco** | 10 GB libre | 20 GB libre |
 
-### Instalación Rápida de Requisitos (Arch Linux)
+### Instalación Rápida (Arch Linux)
 
 ```bash
 # Minikube
@@ -262,162 +238,198 @@ sudo pacman -S python python-pip
 
 ## 🚀 Instalación y Despliegue
 
-### Paso 1: Clonar Repositorio
+### Opción 1: Despliegue Automatizado Completo (Recomendado)
+
+El script `inicializador.sh` ejecuta **todos los pasos** de forma secuencial:
 
 ```bash
-git clone https://github.com/tu-usuario/Historia-Clinica-Distribuida.git
-cd Historia-Clinica-Distribuida/backend/project
+# Clonar repositorio
+git clone <URL_DEL_REPOSITORIO>
+cd Historia-Clinica-Distribuida
+
+# Dar permisos de ejecución
+chmod +x inicializador.sh
+
+# Ejecutar instalación completa
+./inicializador.sh
 ```
 
-### Paso 2: Instalación Automática Completa
-
-El sistema se despliega completamente con un solo comando:
-
-```bash
-chmod +x setup.sh
-./setup.sh 2>&1 | tee setup_log.txt
-```
-
-**⏱️ Tiempo estimado**: 5-10 minutos
+**⏱️ Tiempo estimado**: 10-15 minutos
 
 **¿Qué hace este script?**
 
 1. ✅ Verifica requisitos (Minikube, kubectl, Docker, Python)
-2. ✅ Inicia Minikube con 4 CPU y 4GB RAM
-3. ✅ Crea namespace `citus` en Kubernetes
+2. ✅ Inicia Minikube con recursos adecuados
+3. ✅ Crea namespace `citus`
 4. ✅ Despliega Citus (1 coordinator + 2 workers)
 5. ✅ Configura base de datos `historiaclinica`
-6. ✅ Instala extensiones `citus` y `pgcrypto`
-7. ✅ Crea tabla `usuarios` con 7 usuarios de prueba
-8. ✅ Crea tabla `pacientes` (57 campos) distribuida por `numero_documento`
-9. ✅ Inserta 3 pacientes de prueba
-10. ✅ Construye imagen Docker del middleware
-11. ✅ Crea Kubernetes secrets con credenciales
-12. ✅ Despliega middleware FastAPI
-13. ✅ Verifica que todo esté operativo
+6. ✅ Crea tablas `usuarios` y `pacientes` (57 campos)
+7. ✅ Inserta usuarios y pacientes de prueba
+8. ✅ Construye imagen Docker del middleware
+9. ✅ Crea Kubernetes secrets
+10. ✅ Despliega middleware con NodePort
+11. ✅ Configura exposición a red local
+12. ✅ **Lanza servidor frontend automáticamente**
 
-**Salida Esperada:**
+**Salida esperada**:
 
 ```
 ================================================================
-  ✓ SISTEMA COMPLETAMENTE OPERATIVO
+  ✓ Backend listo y expuesto en http://192.168.1.X:8000
+  🚀 El frontend se lanzará a continuación en http://localhost:5000
 ================================================================
 
-📝 USUARIOS DE PRUEBA:
-  Admin:       admin / admin
-  Médico 1:    dr_rodriguez / password123
-  Médico 2:    dra_martinez / password123
-  Admisionista: admisionista1 / password123
-  Resultados:  resultados1 / password123
-  Paciente 1:  paciente_juan / password123 (doc: 12345)
-  Paciente 2:  paciente_maria / password123 (doc: 67890)
+🏥 FRONTEND - SISTEMA DE HISTORIA CLÍNICA
+================================================================
 
-🚀 PARA ACCEDER A LA API:
-  kubectl port-forward -n citus service/middleware-citus-service 8000:8000 &
+URLs disponibles:
+   • http://localhost:5000/              (Login)
+   • http://localhost:5000/medico.html   (Panel Médico)
+   • http://localhost:5000/paciente.html (Panel Paciente)
 
-¡Sistema operativo!
+Backend (FastAPI):
+   • http://192.168.1.X:8000/docs
+
+✅ Servidor listo.
 ```
 
----
+### Opción 2: Despliegue Manual por Pasos
 
-## 🌐 Configuración de Acceso a Red
+Si prefieres control total sobre cada fase:
 
-### Paso 3: Habilitar NodePort (Acceso desde Red Local)
+#### Paso 1: Configurar Backend
+
+```bash
+cd backend/project
+chmod +x setup.sh
+./setup.sh 2>&1 | tee setup_log.txt
+```
+
+#### Paso 2: Habilitar NodePort
 
 ```bash
 chmod +x enable_nodeport.sh
 ./enable_nodeport.sh 2>&1 | tee nodeport_setup.log
 ```
 
-**¿Qué hace?**
-
-- Configura servicio NodePort en puerto fijo `30800`
-- Obtiene IP de Minikube
-- Verifica conectividad
-- Proporciona URLs de acceso
-
-**Resultado:**
-
-```
-================================================================
-  ✓ NodePort CONFIGURADO EXITOSAMENTE
-================================================================
-
-📡 ACCESO DESDE RED LOCAL:
-  Base URL:     http://192.168.49.2:30800
-  Swagger UI:   http://192.168.49.2:30800/docs
-  ReDoc:        http://192.168.49.2:30800/redoc
-
-🧪 PROBAR LA API:
-  curl http://192.168.49.2:30800/health
-```
-
-### Paso 4: Exponer al Host (Acceso desde VM)
+#### Paso 3: Exponer a Red Local (Host)
 
 ```bash
 chmod +x expose_to_network.sh
 ./expose_to_network.sh
 ```
 
-**Permite**: Acceso desde el host que corre Minikube usando `socat` para port forwarding.
-
-### Paso 5: Exponer a Red Real (Acceso desde Smartphones/Tablets)
+#### Paso 4: Exponer a Red Real (Dispositivos Móviles)
 
 ```bash
 chmod +x expose_to_real_network.sh
 ./expose_to_real_network.sh
 ```
 
-**Resultado:**
+#### Paso 5: Lanzar Frontend
 
-```
-================================================================
-  ✓ SISTEMA EXPUESTO A RED LOCAL
-================================================================
-
-📱 ACCESO DESDE DISPOSITIVOS MÓVILES:
-  URL Base:      http://192.168.1.100:8000
-  Swagger UI:    http://192.168.1.100:8000/docs
-
-📱 DESDE SMARTPHONE/TABLET:
-  1. Conéctate a la misma red WiFi
-  2. Abre el navegador
-  3. Ingresa: http://192.168.1.100:8000/docs
+```bash
+cd ../../frontend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 prueba.py
 ```
 
-**Nota**: La IP `192.168.1.100` es la IP real de tu máquina en la red local (se detecta automáticamente).
+---
+
+## 🌐 Configuración de Acceso
+
+### Acceso Local (Port-Forward)
+
+```bash
+kubectl port-forward -n citus service/middleware-citus-service 8000:8000 &
+```
+
+**URLs**:
+- Backend API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- Frontend: `http://localhost:5000`
+
+### Acceso desde Red Local (NodePort)
+
+Después de ejecutar `enable_nodeport.sh`:
+
+```bash
+# Obtener IP de Minikube
+minikube ip
+# Ejemplo: 192.168.49.2
+
+# Acceder desde cualquier PC en la red
+curl http://192.168.49.2:30800/health
+```
+
+**URLs**:
+- Backend: `http://192.168.49.2:30800`
+- Swagger: `http://192.168.49.2:30800/docs`
+
+### Acceso desde Dispositivos Móviles
+
+Después de ejecutar `expose_to_real_network.sh`:
+
+```bash
+# El script detecta automáticamente tu IP local
+# Ejemplo salida:
+# IP de red local detectada: 192.168.1.100
+```
+
+**Desde smartphone/tablet**:
+
+1. Conecta el dispositivo a la **misma red WiFi**
+2. Abre el navegador
+3. Navega a `http://192.168.1.100:8000/docs`
+
+**URLs disponibles**:
+- Backend: `http://192.168.1.100:8000`
+- Frontend: `http://192.168.1.100:5000`
 
 ---
 
 ## 💻 Uso del Sistema
 
-### Acceso Local (Port-Forward)
+### Login
 
-```bash
-# Iniciar port-forward
-kubectl port-forward -n citus service/middleware-citus-service 8000:8000 &
+**URL**: `http://localhost:5000/login.html`
 
-# Verificar API
-curl http://localhost:8000/health
-```
+**Usuarios de Prueba**:
 
-### Acceso desde Red Local
+| Username | Contraseña | Rol | Descripción |
+|----------|-----------|-----|-------------|
+| `admin` | `admin` | Admin | Administrador del sistema |
+| `dr_rodriguez` | `password123` | Médico | Dr. Carlos Rodríguez |
+| `dra_martinez` | `password123` | Médico | Dra. Ana Martínez |
+| `admisionista1` | `password123` | Admisionista | María González |
+| `resultados1` | `password123` | Resultados | Pedro López |
+| `paciente_juan` | `password123` | Paciente | Juan Pérez (doc: 12345) |
+| `paciente_maria` | `password123` | Paciente | María Gómez (doc: 67890) |
 
-Una vez configurado NodePort, accede directamente:
+### Flujo de Trabajo Típico
 
-```bash
-# Health check
-curl http://192.168.49.2:30800/health
+#### Como Médico:
 
-# Documentación interactiva
-# Abre en navegador: http://192.168.49.2:30800/docs
-```
+1. Login → Redirige a `medico.html`
+2. **Buscar paciente**: Por documento o nombre
+3. **Ver historia clínica**: Click en "Ver"
+4. **Editar historia**: Click en "Editar" → Actualizar campos
+5. **Exportar PDF**: Click en "Descargar PDF"
 
-### Acceso desde Dispositivos Móviles
+#### Como Admisionista:
 
-1. **Conecta** tu smartphone/tablet a la misma red WiFi
-2. **Abre** el navegador
-3. **Navega** a `http://<IP_REAL>:8000/docs`
+1. Login → Redirige a `admisionista.html`
+2. **Registrar nuevo paciente**: Click en "Registrar Nuevo Paciente"
+3. Completar formulario (campos obligatorios: documento, nombre, fecha nacimiento, sexo)
+4. **Guardar**: Sistema crea historia clínica
+
+#### Como Paciente:
+
+1. Login → Redirige a `paciente.html`
+2. **Ver mi historia**: Solo lectura de datos propios
+3. **Descargar PDF**: Click en "Descargar Historia en PDF"
 
 ---
 
@@ -425,19 +437,30 @@ curl http://192.168.49.2:30800/health
 
 ### Sistema de Roles
 
-El sistema implementa 5 roles con permisos diferenciados:
+El sistema implementa **RBAC (Role-Based Access Control)** con 5 roles:
 
 | Rol | Permisos | Descripción |
 |-----|----------|-------------|
-| **👑 Admin** | Acceso total | Gestión de usuarios, acceso a todas las historias |
-| **👨‍⚕️ Médico** | Lectura/Escritura | Acceso completo a historias clínicas, puede crear y modificar |
-| **📋 Admisionista** | Crear/Actualizar | Registra nuevos pacientes y actualiza datos básicos |
-| **🧪 Resultados** | Agregar resultados | Ingresa resultados de exámenes y procedimientos |
-| **🙍 Paciente** | Solo lectura propia | Solo puede ver su propia historia clínica |
+| **👑 Admin** | Acceso total | Gestión de usuarios, todas las historias, estadísticas |
+| **👨‍⚕️ Médico** | Lectura/Escritura | Acceso completo a historias, crear y modificar |
+| **📋 Admisionista** | Crear/Actualizar | Registro de nuevos pacientes, datos básicos |
+| **🧪 Resultados** | Agregar resultados | Ingresar resultados de exámenes |
+| **🙍 Paciente** | Solo lectura propia | Ver únicamente su propia historia |
 
-### Flujo de Autenticación
+### Matriz de Permisos
 
-#### 1. Obtener Token JWT
+| Acción | Admin | Médico | Admisionista | Resultados | Paciente |
+|--------|-------|--------|--------------|------------|----------|
+| Ver cualquier historia | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Ver propia historia | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Crear paciente | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Actualizar paciente | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Eliminar paciente | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Gestionar usuarios | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Ver estadísticas | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Exportar PDF | ✅ | ✅ | ✅ | ✅ | ✅ (propio) |
+
+### Obtener Token JWT
 
 ```bash
 curl -X POST http://localhost:8000/token \
@@ -448,7 +471,7 @@ curl -X POST http://localhost:8000/token \
   }'
 ```
 
-**Respuesta:**
+**Respuesta**:
 
 ```json
 {
@@ -460,13 +483,12 @@ curl -X POST http://localhost:8000/token \
     "username": "admin",
     "rol": "admin",
     "nombres": "Administrador",
-    "apellidos": "Sistema",
-    "activo": true
+    "apellidos": "Sistema"
   }
 }
 ```
 
-#### 2. Usar Token en Requests
+### Usar Token en Requests
 
 ```bash
 TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -474,27 +496,6 @@ TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 curl http://localhost:8000/pacientes \
   -H "Authorization: Bearer $TOKEN"
 ```
-
-#### 3. Verificar Usuario Actual
-
-```bash
-curl http://localhost:8000/me \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Usuarios de Prueba
-
-Todos con contraseña `password123` (excepto `admin` que usa `admin`):
-
-| Username | Rol | Documento Vinculado |
-|----------|-----|---------------------|
-| `admin` | Admin | - |
-| `dr_rodriguez` | Médico | - |
-| `dra_martinez` | Médico | - |
-| `admisionista1` | Admisionista | - |
-| `resultados1` | Resultados | - |
-| `paciente_juan` | Paciente | 12345 |
-| `paciente_maria` | Paciente | 67890 |
 
 ---
 
@@ -511,80 +512,72 @@ Todos con contraseña `password123` (excepto `admin` que usa `admin`):
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `GET` | `/` | Información general de la API |
-| `GET` | `/health` | Estado del sistema y base de datos |
+| `GET` | `/health` | Estado del sistema y BD |
 | `POST` | `/token` | Autenticación (retorna JWT) |
 
 ### Endpoints Protegidos - Pacientes
 
-| Método | Endpoint | Roles Permitidos | Descripción |
-|--------|----------|------------------|-------------|
-| `GET` | `/pacientes` | Staff | Listar pacientes (vista resumida) |
-| `GET` | `/pacientes/{doc}` | Staff, Paciente (propio) | Obtener historia clínica completa |
-| `POST` | `/pacientes` | Admisionista, Médico, Admin | Crear nuevo paciente |
+| Método | Endpoint | Roles | Descripción |
+|--------|----------|-------|-------------|
+| `GET` | `/pacientes` | Staff | Listar pacientes (resumido) |
+| `GET` | `/pacientes/{doc}` | Staff, Paciente (propio) | Historia clínica completa |
+| `POST` | `/pacientes` | Admisionista, Médico, Admin | Crear paciente |
 | `PUT` | `/pacientes/{doc}` | Médico, Admin | Actualizar paciente |
-| `DELETE` | `/pacientes/{doc}` | Admin | Eliminar paciente (borrado lógico) |
-| `GET` | `/pacientes/buscar/query` | Staff | Buscar por nombre o documento |
-| `GET` | `/pacientes/{doc}/pdf` | Staff, Paciente (propio) | Exportar historia clínica a PDF |
+| `DELETE` | `/pacientes/{doc}` | Admin | Eliminar (lógico) |
+| `GET` | `/pacientes/buscar/query` | Staff | Buscar por nombre/documento |
+| `GET` | `/pacientes/{doc}/pdf` | Staff, Paciente (propio) | Exportar PDF |
 
 ### Endpoints Protegidos - Usuarios
 
-| Método | Endpoint | Roles Permitidos | Descripción |
-|--------|----------|------------------|-------------|
-| `GET` | `/me` | Todos | Información del usuario actual |
-| `GET` | `/usuarios` | Admin | Listar todos los usuarios |
-| `POST` | `/usuarios` | Admin | Crear nuevo usuario |
+| Método | Endpoint | Roles | Descripción |
+|--------|----------|-------|-------------|
+| `GET` | `/me` | Todos | Usuario actual |
+| `GET` | `/usuarios` | Admin | Listar usuarios |
+| `POST` | `/usuarios` | Admin | Crear usuario |
 
 ### Endpoints Protegidos - Estadísticas
 
-| Método | Endpoint | Roles Permitidos | Descripción |
-|--------|----------|------------------|-------------|
-| `GET` | `/estadisticas` | Admin | Estadísticas generales del sistema |
+| Método | Endpoint | Roles | Descripción |
+|--------|----------|-------|-------------|
+| `GET` | `/estadisticas` | Admin | Estadísticas generales |
 
 ### Ejemplos de Uso
 
-#### Crear Paciente (Admisionista)
+#### Crear Paciente
 
 ```bash
-TOKEN="<token_admisionista>"
+TOKEN="<tu_token>"
 
 curl -X POST http://localhost:8000/pacientes \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "tipo_documento": "CC",
-    "numero_documento": "12345678",
+    "numero_documento": "98765432",
     "primer_apellido": "García",
-    "primer_nombre": "Carlos",
-    "fecha_nacimiento": "1990-05-15",
-    "sexo": "M",
-    "telefono": "3001234567",
-    "correo_electronico": "carlos@example.com"
+    "primer_nombre": "Laura",
+    "fecha_nacimiento": "1992-08-20",
+    "sexo": "F",
+    "celular": "3201234567"
   }'
-```
-
-#### Listar Pacientes (Médico)
-
-```bash
-curl "http://localhost:8000/pacientes?limit=10" \
-  -H "Authorization: Bearer $TOKEN"
 ```
 
 #### Buscar Paciente
 
 ```bash
-curl "http://localhost:8000/pacientes/buscar/query?nombre=Carlos" \
+curl "http://localhost:8000/pacientes/buscar/query?nombre=Laura" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-#### Actualizar Paciente (Médico)
+#### Actualizar Paciente
 
 ```bash
-curl -X PUT http://localhost:8000/pacientes/12345678 \
+curl -X PUT http://localhost:8000/pacientes/98765432 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "telefono": "3109876543",
-    "motivo_consulta": "Control de rutina"
+    "motivo_consulta": "Control mensual"
   }'
 ```
 
@@ -592,7 +585,7 @@ curl -X PUT http://localhost:8000/pacientes/12345678 \
 
 ## 📄 Exportación a PDF
 
-### Generar PDF de Historia Clínica
+### Generar PDF desde API
 
 ```bash
 curl http://localhost:8000/pacientes/12345/pdf \
@@ -602,14 +595,14 @@ curl http://localhost:8000/pacientes/12345/pdf \
 
 ### Características del PDF
 
-- **✅ Encabezado profesional** con logo del sistema
-- **✅ 57 campos organizados** por secciones
-- **✅ Datos del paciente** completos
-- **✅ Signos vitales** con formato visual
-- **✅ Diagnósticos** y tratamientos
-- **✅ Pie de página** con información legal
-- **✅ Formato Letter** (8.5" × 11")
-- **✅ Protegido por autenticación**: Solo staff y el paciente dueño pueden exportar
+- ✅ Encabezado profesional con logo
+- ✅ 57 campos organizados por secciones
+- ✅ Datos completos del paciente
+- ✅ Signos vitales con formato visual
+- ✅ Diagnósticos y tratamientos
+- ✅ Pie de página con info legal
+- ✅ Formato Letter (8.5" × 11")
+- ✅ Protegido por autenticación
 
 ### Secciones del PDF
 
@@ -623,68 +616,12 @@ curl http://localhost:8000/pacientes/12345/pdf \
 8. **Evolución y Egreso** (3 campos)
 9. **Datos del Profesional** (8 campos)
 
-### Desde Swagger UI
+### Desde Interfaz Web
 
-1. Navega a `/docs`
-2. Autorízate con tu token
-3. Busca el endpoint `GET /pacientes/{numero_documento}/pdf`
-4. Click en "Try it out"
-5. Ingresa el número de documento
-6. Click en "Execute"
-7. El PDF se descargará automáticamente
-
----
-
-
-
-**Cubre 20+ escenarios:**
-
-- ✅ Conectividad de la API
-- ✅ Health check
-- ✅ Autenticación con todos los roles
-- ✅ Credenciales inválidas (401)
-- ✅ Endpoint `/me`
-- ✅ Listar pacientes
-- ✅ Obtener paciente específico
-- ✅ Crear paciente
-- ✅ Actualizar paciente
-- ✅ Control de acceso por roles
-- ✅ Paciente accediendo a su propia historia
-- ✅ Paciente intentando ver historia ajena (403)
-- ✅ Búsqueda por nombre y documento
-- ✅ Exportación a PDF
-- ✅ Gestión de usuarios (Admin)
-- ✅ Estadísticas del sistema
-
-**Salida Esperada:**
-
-```
-================================================================
-  ✓ TESTS COMPLETADOS
-================================================================
-
-Resumen:
-  Total de tests: 20
-  Tests exitosos: 20
-  Tests fallidos: 0
-
-🎉 ¡TODOS LOS TESTS PASARON!
-Sistema completamente funcional
-```
-
-### Verificar Conectividad NodePort
-
-```bash
-chmod +x test_nodeport.sh
-./test_nodeport.sh
-```
-
-### Tests Manuales en Swagger UI
-
-1. Abre `http://localhost:8000/docs`
-2. Click en **🔓 Authorize**
-3. Ingresa: `Bearer <tu_token>`
-4. Prueba cualquier endpoint interactivamente
+1. Login → Panel correspondiente
+2. Buscar paciente
+3. Click en **"Descargar PDF"** o **"📄 PDF"**
+4. El navegador descarga automáticamente
 
 ---
 
@@ -698,606 +635,69 @@ Historia-Clinica-Distribuida/
 │       ├── app/
 │       │   ├── __init__.py
 │       │   ├── main.py              # FastAPI app principal
-│       │   ├── auth.py              # Autenticación JWT con roles
-│       │   ├── database.py          # Conexión PostgreSQL/Citus
+│       │   ├── auth.py              # OAuth2 + JWT + RBAC
+│       │   ├── database.py          # Conexión Citus
 │       │   ├── models.py            # Modelos Pydantic (57 campos)
-│       │   └── pdf_generator.py     # Generación de PDFs con WeasyPrint
+│       │   └── pdf_generator.py     # WeasyPrint PDFs
 │       │
 │       ├── infra/
-│       │   ├── citus-deployment.yaml           # Deployment Citus
-│       │   ├── app-deployment.yaml             # Deployment middleware (ClusterIP)
-│       │   └── app-deployment-nodeport.yaml    # Deployment middleware (NodePort)
+│       │   ├── citus-deployment.yaml           # Citus coordinator + workers
+│       │   ├── app-deployment.yaml             # Middleware (ClusterIP)
+│       │   ├── app-deployment-nodeport.yaml    # Middleware (NodePort)
+│       │   └── initdb/                         # Scripts SQL inicialización
+│       │       ├── 01_create_extension.sql
+│       │       ├── 06_create_usuarios.sql
+│       │       ├── 07_create_pacientes_completo.sql
+│       │       └── 08_insert_data_complete.sql
 │       │
 │       ├── Dockerfile               # Imagen middleware
-│       ├── requirements.txt         # Dependencias Python
-│       ├── setup.sh                 # Script instalación completa ⚡
+│       ├── requirements.txt         # Dependencias Python (backend)
+│       ├── setup.sh                 # Instalación completa backend ⚡
 │       ├── enable_nodeport.sh       # Configurar NodePort
 │       ├── expose_to_network.sh     # Exponer a host
 │       └── expose_to_real_network.sh # Exponer a red real
-│      
 │
-├── frontend/                        # (En desarrollo por frontend team)
-│   ├── templates/
+├── frontend/
+│   ├── templates/                   # Vistas HTML
+│   │   ├── login.html               # Página de login
+│   │   ├── medico.html              # Panel médico
+│   │   ├── paciente.html            # Panel paciente
+│   │   ├── admisionista.html        # Panel admisionista
+│   │   ├── resultados.html          # Panel resultados
+│   │   ├── panel_admin.html         # Panel admin
+│   │   ├── gestionar_usuarios.html  # Gestión usuarios
+│   │   ├── reportes.html            # Reportes y estadísticas
+│   │   ├── registrar_paciente.html  # Formulario 57 campos
+│   │   ├── ver_historia_clinica.html # Vista completa HC
+│   │   ├── editar_historia_clinica.html # Edición HC
+│   │   └── historia_pdf.html        # Visor PDF
+│   │
 │   ├── static/
-│   └── prueba.py
+│   │   ├── js/
+│   │   │   └── config.js            # Configuración API + utilidades
+│   │   └── css/
+│   │       └── style.css
+│   │
+│   ├── prueba.py                    # Servidor Flask
+│   └── requirements.txt             # Dependencias Python (frontend)
 │
-├── .gitignore
-└── README.md                        # Este archivo
-```
-
----
-
-## 🔧 Troubleshooting
-
-### Problema: Pods no inician
-
-```bash
-# Ver logs del pod problemático
-kubectl logs -n citus <pod-name>
-
-# Describir pod para ver eventos
-kubectl describe pod -n citus <pod-name>
-
-# Reiniciar Minikube si es necesario
-minikube stop
-minikube delete
-minikube start --cpus=4 --memory=4096
-./setup.sh
-```
-
-### Problema: No se puede acceder a la API
-
-```bash
-# Verificar que el pod esté corriendo
-kubectl get pods -n citus -l app=middleware-citus
-
-# Ver logs del middleware
-kubectl logs -n citus -l app=middleware-citus -f
-
-# Reiniciar port-forward
-pkill -f port-forward
-kubectl port-forward -n citus service/middleware-citus-service 8000:8000 &
-```
-
-### Problema: Error al generar PDF
-
-**Causa común**: Dependencias de WeasyPrint faltantes
-
-```bash
-# Verificar que las dependencias estén instaladas en el pod
-kubectl exec -n citus -it <middleware-pod> -- pip list | grep -i weasy
-
-# Si faltan, reconstruir imagen
-docker build --no-cache -t middleware-citus:1.0 .
-minikube image load middleware-citus:1.0
-kubectl rollout restart deployment/middleware-citus -n citus
-```
-
-### Problema: Token expirado o inválido
-
-**Síntomas**: Error 401 en endpoints protegidos
-
-**Solución**:
-```bash
-# Obtener nuevo token
-curl -X POST http://localhost:8000/token \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}' \
-  | jq -r '.access_token'
-```
-
-Los tokens expiran después de 30 minutos por seguridad.
-
-### Problema: Base de datos no responde
-
-```bash
-# Verificar estado de Citus
-kubectl get pods -n citus -l app=citus-coordinator
-
-# Conectarse a PostgreSQL para debugging
-COORDINATOR_POD=$(kubectl get pod -n citus -l app=citus-coordinator -o jsonpath="{.items[0].metadata.name}")
-
-kubectl exec -it -n citus $COORDINATOR_POD -- psql -U postgres -d historiaclinica
-
-# Dentro de psql:
-\dt                              # Listar tablas
-SELECT * FROM citus_tables;      # Ver distribución
-SELECT COUNT(*) FROM usuarios;   # Verificar datos
-```
-
-### Problema: No puedo acceder desde otro dispositivo
-
-**Checklist**:
-
-1. ✅ Verificar que NodePort esté configurado:
-   ```bash
-   kubectl get svc -n citus middleware-citus-service
-   ```
-
-2. ✅ Verificar IP de Minikube:
-   ```bash
-   minikube ip
-   ```
-
-3. ✅ Probar desde el mismo host:
-   ```bash
-   curl http://$(minikube ip):30800/health
-   ```
-
-4. ✅ Si usas Docker driver, ejecutar `minikube tunnel` en otra terminal
-
-5. ✅ Para acceso desde red real, verificar que `expose_to_real_network.sh` se ejecutó correctamente
-
-6. ✅ Verificar firewall del host:
-   ```bash
-   sudo iptables -L INPUT | grep 8000
-   ```
-
-### Comandos Útiles de Diagnóstico
-
-```bash
-# Ver todos los recursos
-kubectl get all -n citus
-
-# Ver logs de todos los pods
-kubectl logs -n citus --all-containers=true --tail=100
-
-# Ver eventos del namespace
-kubectl get events -n citus --sort-by='.lastTimestamp'
-
-# Ver uso de recursos
-kubectl top pods -n citus
-
-# Verificar secrets
-kubectl get secret app-secrets -n citus -o jsonpath='{.data}' | jq 'map_values(@base64d)'
-
-# Reiniciar sistema completo
-kubectl delete namespace citus
-./setup.sh
+├── inicializador.sh                 # 🚀 Script unificado TODO-EN-UNO
+├── README.md                        # Este archivo
+└── .gitignore
 ```
 
 ---
 
 ## 📚 Documentación Técnica
 
-### Modelo de Datos Completo (57 Campos)
+### Modelo de Datos - Tabla `pacientes` (57 Campos)
 
-#### Identificación del Paciente (23 campos)
+#### 1. Identificación del Paciente (23 campos)
 
-| Campo | Tipo | Descripción | Obligatorio |
+| Campo | Tipo | Obligatorio | Descripción |
 |-------|------|-------------|-------------|
-| `tipo_documento` | VARCHAR(20) | CC, TI, CE, PA, RC | ✅ |
-| `numero_documento` | VARCHAR(20) | Único, clave de distribución | ✅ |
-| `primer_apellido` | VARCHAR(100) | Apellido paterno | ✅ |
-| `segundo_apellido` | VARCHAR(100) | Apellido materno | ❌ |
-| `primer_nombre` | VARCHAR(100) | Nombre principal | ✅ |
-| `segundo_nombre` | VARCHAR(100) | Nombre secundario | ❌ |
-| `fecha_nacimiento` | DATE | Fecha de nacimiento | ✅ |
-| `sexo` | VARCHAR(10) | M, F, Otro | ✅ |
-| `genero` | VARCHAR(50) | Identidad de género | ❌ |
-| `grupo_sanguineo` | VARCHAR(5) | A+, A-, B+, B-, AB+, AB-, O+, O- | ❌ |
-| `factor_rh` | VARCHAR(10) | Positivo, Negativo | ❌ |
-| `estado_civil` | VARCHAR(20) | Soltero, Casado, Union Libre, etc. | ❌ |
-| `direccion_residencia` | TEXT | Dirección completa | ❌ |
-| `municipio` | VARCHAR(100) | Ciudad | ❌ |
-| `departamento` | VARCHAR(100) | Departamento/Estado | ❌ |
-| `telefono` | VARCHAR(20) | Teléfono fijo | ❌ |
-| `celular` | VARCHAR(20) | Teléfono móvil | ❌ |
-| `correo_electronico` | VARCHAR(100) | Email | ❌ |
-| `ocupacion` | VARCHAR(100) | Profesión u oficio | ❌ |
-| `entidad` | VARCHAR(100) | EPS/ARL | ❌ |
-| `regimen_afiliacion` | VARCHAR(50) | Contributivo, Subsidiado, etc. | ❌ |
-| `tipo_usuario` | VARCHAR(50) | Beneficiario, Cotizante, etc. | ❌ |
-| `pais` | VARCHAR(50) | País de residencia | ❌ |
-
-#### Datos Administrativos de Atención (17 campos)
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `fecha_atencion` | TIMESTAMP | Fecha y hora de atención |
-| `tipo_atencion` | VARCHAR(50) | Urgencias, Consulta Externa, etc. |
-| `motivo_consulta` | TEXT | Razón de la visita |
-| `enfermedad_actual` | TEXT | Descripción del problema actual |
-| `antecedentes_personales` | TEXT | Historial médico |
-| `antecedentes_familiares` | TEXT | Historial familiar |
-| `alergias_conocidas` | TEXT | Alergias documentadas |
-| `habitos` | TEXT | Alcohol, tabaco, ejercicio, etc. |
-| `medicamentos_actuales` | TEXT | Medicación en curso |
-| `tension_arterial` | VARCHAR(20) | TA (ej: 120/80) |
-| `frecuencia_cardiaca` | INTEGER | Latidos por minuto |
-| `frecuencia_respiratoria` | INTEGER | Respiraciones por minuto |
-| `temperatura` | DECIMAL(4,2) | Temperatura corporal (°C) |
-| `saturacion_oxigeno` | INTEGER | SpO2 (%) |
-| `peso` | DECIMAL(5,2) | Peso en kg |
-| `talla` | DECIMAL(5,2) | Estatura en cm |
-
-#### Examen Físico y Diagnóstico (9 campos)
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `examen_fisico_general` | TEXT | Evaluación física general |
-| `examen_fisico_sistemas` | TEXT | Revisión por sistemas |
-| `impresion_diagnostica` | TEXT | Diagnóstico presuntivo |
-| `codigos_cie10` | TEXT | Códigos CIE-10 |
-| `conducta_plan` | TEXT | Plan de manejo |
-| `recomendaciones` | TEXT | Indicaciones al paciente |
-| `medicos_interconsultados` | TEXT | Especialistas consultados |
-| `procedimientos_realizados` | TEXT | Procedimientos ejecutados |
-| `resultados_examenes` | TEXT | Resultados de laboratorio |
-
-#### Cierre y Seguimiento (7 campos)
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `diagnostico_definitivo` | TEXT | Diagnóstico confirmado |
-| `evolucion_medica` | TEXT | Progreso del paciente |
-| `tratamiento_instaurado` | TEXT | Tratamiento aplicado |
-| `formulacion_medica` | TEXT | Receta médica |
-| `educacion_paciente` | TEXT | Educación y consejería |
-| `referencia_contrarreferencia` | TEXT | Referencias a especialistas |
-| `estado_egreso` | VARCHAR(50) | Mejorado, Igual, Empeorado, etc. |
-
-#### Datos del Profesional (8 campos)
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `nombre_profesional` | VARCHAR(200) | Nombre completo del médico |
-| `tipo_profesional` | VARCHAR(50) | Médico, Enfermero, etc. |
-| `registro_medico` | VARCHAR(50) | Número de registro profesional |
-| `cargo_servicio` | VARCHAR(100) | Cargo o especialidad |
-| `firma_profesional` | TEXT | Firma digital |
-| `firma_paciente` | TEXT | Firma del paciente |
-| `fecha_cierre` | TIMESTAMP | Fecha de cierre de atención |
-| `responsable_registro` | VARCHAR(200) | Quien digitó la historia |
-
-#### Metadatos (3 campos)
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `fecha_registro` | TIMESTAMP | Fecha de creación del registro |
-| `ultima_actualizacion` | TIMESTAMP | Última modificación |
-| `activo` | BOOLEAN | Registro activo/inactivo |
-
-### Estrategia de Fragmentación en Citus
-
-**Columna de distribución**: `numero_documento`
-
-**Razón**: 
-- ✅ Alta cardinalidad (cada paciente tiene documento único)
-- ✅ Distribución uniforme entre shards
-- ✅ Consultas por documento son muy frecuentes (clave natural)
-- ✅ Evita hot spots en los workers
-
-**Número de shards**: 32 (configuración por defecto de Citus)
-
-**Colocación**: Todas las filas del mismo paciente están en el mismo shard
-
-```sql
--- Verificar distribución
-SELECT * FROM citus_tables WHERE table_name::text = 'pacientes';
-
--- Ver shards por worker
-SELECT nodename, count(*) 
-FROM citus_shards 
-WHERE table_name::text = 'pacientes' 
-GROUP BY nodename;
-
--- Estadísticas de fragmentación
-SELECT 
-    shardid, 
-    shardminvalue, 
-    shardmaxvalue,
-    nodename
-FROM pg_dist_shard_placement 
-JOIN pg_dist_shard USING (shardid)
-WHERE logicalrelid = 'pacientes'::regclass
-LIMIT 10;
-```
-
-### Flujo de Datos - Crear Paciente
-
-```
-┌─────────┐                           ┌─────────────┐
-│ Cliente │                           │   FastAPI   │
-└────┬────┘                           └──────┬──────┘
-     │                                       │
-     │  POST /pacientes                      │
-     │  Authorization: Bearer <token>        │
-     │  {datos_paciente}                     │
-     ├──────────────────────────────────────>│
-     │                                       │
-     │                            ┌──────────▼──────────┐
-     │                            │ 1. Validar JWT      │
-     │                            │ 2. Verificar rol    │
-     │                            │    (Admisionista/   │
-     │                            │     Médico/Admin)   │
-     │                            └──────────┬──────────┘
-     │                                       │
-     │                            ┌──────────▼──────────┐
-     │                            │ 3. Validar datos    │
-     │                            │    con Pydantic     │
-     │                            │    (57 campos)      │
-     │                            └──────────┬──────────┘
-     │                                       │
-     │                            ┌──────────▼──────────┐
-     │                            │ 4. Verificar que no │
-     │                            │    exista documento │
-     │                            └──────────┬──────────┘
-     │                                       │
-     │                            ┌──────────▼──────────┐
-     │                            │ 5. INSERT en Citus  │
-     │                            │    Citus calcula    │
-     │                            │    shard por hash   │
-     │                            │    (documento_id)   │
-     │                            └──────────┬──────────┘
-     │                                       │
-     │                            ┌──────────▼──────────┐
-     │                            │ 6. Datos insertados │
-     │                            │    en worker        │
-     │                            │    apropiado        │
-     │                            └──────────┬──────────┘
-     │                                       │
-     │  201 Created                          │
-     │  {paciente_completo}                  │
-     │<──────────────────────────────────────┤
-     │                                       │
-```
-
-### Seguridad Implementada
-
-#### Autenticación
-
-- **Algoritmo**: JWT con HS256
-- **Expiración**: 30 minutos
-- **Hash de contraseñas**: bcrypt con salt automático
-- **Secrets**: Almacenados en Kubernetes secrets
-
-#### Control de Acceso
-
-```python
-# Ejemplo de implementación en main.py
-
-@app.get("/pacientes/{numero_documento}")
-def obtener_paciente(
-    numero_documento: str,
-    current_user: Usuario = Depends(get_current_active_user)
-):
-    # Verificar permisos
-    if not user_can_access_patient(current_user, numero_documento):
-        raise HTTPException(
-            status_code=403,
-            detail="No tiene permiso para acceder a este paciente"
-        )
-    
-    # Si llega aquí, tiene permiso
-    # ... obtener y retornar paciente
-```
-
-#### Reglas de Acceso
-
-| Acción | Admin | Médico | Admisionista | Resultados | Paciente |
-|--------|-------|--------|--------------|------------|----------|
-| Ver cualquier historia | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Ver propia historia | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Crear paciente | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Actualizar paciente | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Eliminar paciente | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Gestionar usuarios | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Ver estadísticas | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Exportar PDF | ✅ | ✅ | ✅ | ✅ | ✅ (propio) |
-
-### Variables de Entorno
-
-El sistema utiliza las siguientes variables de entorno (almacenadas en Kubernetes secrets):
-
-```bash
-# Base de datos
-POSTGRES_HOST=citus-coordinator
-POSTGRES_PORT=5432
-POSTGRES_DB=historiaclinica
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=password
-
-# JWT
-SECRET_KEY=20240902734
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
-
-Para desarrollo local, crear archivo `.env`:
-
-```bash
-cd backend/project
-cat > .env << EOF
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=historiaclinica
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=password
-
-SECRET_KEY=20240902734
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-EOF
-```
-
-### Despliegue en Producción
-
-#### Consideraciones
-
-1. **Cambiar SECRET_KEY**: Generar clave segura:
-   ```bash
-   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-   ```
-
-2. **Contraseñas seguras**: Cambiar contraseñas de BD y usuarios de prueba
-
-3. **HTTPS**: Configurar Ingress con certificados TLS
-
-4. **Respaldos**: Implementar estrategia de backups de PostgreSQL
-
-5. **Monitoring**: Integrar Prometheus + Grafana
-
-6. **Logs**: Centralizar logs con ELK Stack o similar
-
-#### Ingress para Producción
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: middleware-ingress
-  namespace: citus
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-spec:
-  tls:
-  - hosts:
-    - api.historiaclinica.com
-    secretName: historiaclinica-tls
-  rules:
-  - host: api.historiaclinica.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: middleware-citus-service
-            port:
-              number: 8000
-```
-
----
-
-## 🎓 Recursos Adicionales
-
-### Documentación Oficial
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Citus Data Documentation](https://docs.citusdata.com/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [JWT.io - JSON Web Tokens](https://jwt.io/)
-- [WeasyPrint Documentation](https://doc.courtbouillon.org/weasyprint/)
-
-### Tutoriales Relacionados
-
-- [FastAPI Security](https://fastapi.tiangolo.com/tutorial/security/)
-- [Citus Sharding Guide](https://docs.citusdata.com/en/stable/sharding/data_modeling.html)
-- [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/)
-- [Docker Multi-stage Builds](https://docs.docker.com/build/building/multi-stage/)
-
----
-
-## 📞 Soporte y Contacto
-
-### Reportar Issues
-
-Si encuentras problemas o tienes sugerencias:
-
-1. Verifica que el problema no esté en [Troubleshooting](#-troubleshooting)
-2. Ejecuta el diagnóstico: `./diagnose_connection.sh`
-3. Crea un issue en GitHub con:
-   - Descripción del problema
-   - Logs relevantes
-   - Pasos para reproducir
-   - Salida de `kubectl get pods -n citus`
-
-### Contribuciones
-
-Este es un proyecto académico. Para contribuir:
-
-1. Fork el repositorio
-2. Crea una rama: `git checkout -b feature/nueva-funcionalidad`
-3. Commit: `git commit -m 'Agregar nueva funcionalidad'`
-4. Push: `git push origin feature/nueva-funcionalidad`
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto es parte de un trabajo académico para la asignatura **"Arquitectura y Diseño de Sistemas Distribuidos Seguros para la Gestión de Historias Clínicas Electrónicas"**.
-
-**Uso Educativo**: ✅ Permitido  
-**Uso Comercial**: ❌ No permitido sin autorización  
-**Modificación**: ✅ Permitida con atribución
-
----
-
-## 🏆 Logros del Proyecto
-
-### ✅ Completado
-
-- **Infraestructura distribuida** con Citus (1 coordinator + 2 workers)
-- **57 campos de historia clínica** completos
-- **5 roles de usuario** con control de acceso granular
-- **Autenticación segura** con JWT + bcrypt
-- **CRUD completo** con validaciones
-- **Exportación a PDF** profesional
-- **Acceso desde red local** configurado
-- **Scripts de instalación automatizados**
-- **Tests automatizados** (20+ escenarios)
-- **Documentación completa** con ejemplos
-
-### 📊 Estadísticas
-
-```
-📁 Líneas de código:       5000+
-🐍 Archivos Python:        8
-📄 Archivos YAML:          3
-🧪 Tests automatizados:    20+
-⏱️ Tiempo de instalación:  5-10 min
-🎯 Cobertura funcional:    100%
-👥 Usuarios de prueba:     7
-📦 Dependencias Python:    15
-☸️ Pods Kubernetes:        4
-🗄️ Shards de Citus:        32
-```
-
----
-
-## 🎉 Agradecimientos
-
-**Desarrolladores**:
-- **Backend & DevSecOps**: [Tu Nombre] - Infraestructura, API, Autenticación, PDF
-- **Frontend & UX**: [Nombre Frontend] - Interfaces gráficas (en desarrollo)
-
-**Institución**: [Nombre de la Universidad]  
-**Asignatura**: Arquitectura y Diseño de Sistemas Distribuidos  
-**Periodo**: [Semestre/Año]
-
----
-
-## 🚀 Próximos Pasos (Roadmap)
-
-### Fase 3 - Integración Frontend (En Desarrollo)
-
-- [ ] Conectar interfaces Flask con API FastAPI
-- [ ] Implementar autenticación en frontend
-- [ ] Dashboard responsivo por rol
-- [ ] Formularios de registro de pacientes
-- [ ] Visualización de historias clínicas
-- [ ] Integración con exportación PDF
-
-### Fase 4 - Mejoras Futuras
-
-- [ ] Integración con estándares HL7 FHIR
-- [ ] Sistema de notificaciones
-- [ ] Búsqueda avanzada con filtros
-- [ ] Auditoría de cambios
-- [ ] Reportes y analytics
-- [ ] Backup automático
-- [ ] Migración a cluster real de Kubernetes
-
----
-
-<div align="center">
-
-**Sistema de Historia Clínica Distribuida**  
-*Desarrollado con ❤️ para la gestión eficiente de historias clínicas*
-
-[![GitHub](https://img.shields.io/badge/GitHub-Repositorio-181717?logo=github)](https://github.com/tu-usuario/Historia-Clinica-Distribuida)
-
-</div>
+| `tipo_documento` | VARCHAR(20) | ✅ | CC, TI, CE, PA, RC |
+| `numero_documento` | VARCHAR(20) | ✅ | **Clave de distribución** |
+| `primer_apellido` | VARCHAR(100) | ✅ | Apellido paterno |
+| `segundo_apellido` | VARCHAR(100) | ❌ | Apellido materno |
+| `primer_nombre` | VARCHAR(100) | ✅ | Nombre principal |

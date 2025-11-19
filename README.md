@@ -686,18 +686,736 @@ Historia-Clinica-Distribuida/
 └── .gitignore
 ```
 
----
+### 📚 Documentación Técnica 
 
-## 📚 Documentación Técnica
+#### Modelo de Datos - Tabla `pacientes` (57 Campos)
 
-### Modelo de Datos - Tabla `pacientes` (57 Campos)
-
-#### 1. Identificación del Paciente (23 campos)
+##### 1. Identificación del Paciente (23 campos)
 
 | Campo | Tipo | Obligatorio | Descripción |
 |-------|------|-------------|-------------|
 | `tipo_documento` | VARCHAR(20) | ✅ | CC, TI, CE, PA, RC |
-| `numero_documento` | VARCHAR(20) | ✅ | **Clave de distribución** |
+| `numero_documento` | VARCHAR(20) | ✅ | **Clave de distribución** (único) |
 | `primer_apellido` | VARCHAR(100) | ✅ | Apellido paterno |
 | `segundo_apellido` | VARCHAR(100) | ❌ | Apellido materno |
 | `primer_nombre` | VARCHAR(100) | ✅ | Nombre principal |
+| `segundo_nombre` | VARCHAR(100) | ❌ | Segundo nombre |
+| `fecha_nacimiento` | DATE | ✅ | Fecha de nacimiento |
+| `sexo` | VARCHAR(10) | ✅ | M, F, Otro |
+| `genero` | VARCHAR(50) | ❌ | Identidad de género |
+| `grupo_sanguineo` | VARCHAR(5) | ❌ | A+, A-, B+, B-, AB+, AB-, O+, O- |
+| `factor_rh` | VARCHAR(10) | ❌ | Positivo, Negativo |
+| `estado_civil` | VARCHAR(20) | ❌ | Soltero, Casado, Unión Libre, Divorciado, Viudo |
+| `direccion_residencia` | TEXT | ❌ | Dirección completa |
+| `municipio` | VARCHAR(100) | ❌ | Ciudad o municipio |
+| `departamento` | VARCHAR(100) | ❌ | Departamento/Estado |
+| `telefono` | VARCHAR(20) | ❌ | Teléfono fijo |
+| `celular` | VARCHAR(20) | ❌ | Teléfono móvil |
+| `correo_electronico` | VARCHAR(100) | ❌ | Email del paciente |
+| `ocupacion` | VARCHAR(100) | ❌ | Profesión u oficio |
+| `entidad` | VARCHAR(100) | ❌ | EPS o ARL |
+| `regimen_afiliacion` | VARCHAR(50) | ❌ | Contributivo, Subsidiado, Especial, No afiliado |
+| `tipo_usuario` | VARCHAR(50) | ❌ | Cotizante, Beneficiario, etc. |
+
+##### 2. Datos Administrativos de Atención (17 campos)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `fecha_atencion` | TIMESTAMP | Fecha y hora de la consulta (default: NOW()) |
+| `tipo_atencion` | VARCHAR(50) | Urgencias, Consulta Externa, Hospitalización, Cirugía, Procedimiento |
+| `motivo_consulta` | TEXT | Razón de la visita médica |
+| `enfermedad_actual` | TEXT | Descripción del problema actual |
+| `antecedentes_personales` | TEXT | Historial médico previo del paciente |
+| `antecedentes_familiares` | TEXT | Historial médico familiar relevante |
+| `alergias_conocidas` | TEXT | **⚠️ Importante para prescripción** |
+| `habitos` | TEXT | Alcohol, tabaco, drogas, alimentación, ejercicio |
+| `medicamentos_actuales` | TEXT | Medicación que toma actualmente |
+
+##### 3. Signos Vitales (9 campos)
+
+| Campo | Tipo | Rango | Unidad |
+|-------|------|-------|--------|
+| `tension_arterial` | VARCHAR(20) | - | mmHg (ej: "120/80") |
+| `frecuencia_cardiaca` | INTEGER | 0-300 | lpm (latidos por minuto) |
+| `frecuencia_respiratoria` | INTEGER | 0-100 | rpm (respiraciones por minuto) |
+| `temperatura` | DECIMAL(4,2) | 30.0-45.0 | °C (grados Celsius) |
+| `saturacion_oxigeno` | INTEGER | 0-100 | % (porcentaje) |
+| `peso` | DECIMAL(5,2) | 0-500 | kg (kilogramos) |
+| `talla` | DECIMAL(5,2) | 0-300 | cm (centímetros) |
+
+**Campos calculados** (generados por la API):
+- `edad`: Calculada desde `fecha_nacimiento`
+- `imc`: Calculado como `peso / (talla/100)²`
+
+##### 4. Examen Físico y Diagnóstico (9 campos)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `examen_fisico_general` | TEXT | Descripción del examen físico general |
+| `examen_fisico_sistemas` | TEXT | Examen por sistemas (cardiovascular, respiratorio, etc.) |
+| `impresion_diagnostica` | TEXT | Diagnóstico presuntivo |
+| `codigos_cie10` | TEXT | Códigos de clasificación internacional de enfermedades |
+| `conducta_plan` | TEXT | Plan de tratamiento y seguimiento |
+| `recomendaciones` | TEXT | Indicaciones para el paciente |
+| `medicos_interconsultados` | TEXT | Especialistas consultados |
+| `procedimientos_realizados` | TEXT | Procedimientos médicos aplicados |
+| `resultados_examenes` | TEXT | Resultados de laboratorio, imágenes, etc. |
+
+##### 5. Cierre y Seguimiento (7 campos)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `diagnostico_definitivo` | TEXT | Diagnóstico confirmado |
+| `evolucion_medica` | TEXT | Evolución del paciente durante atención |
+| `tratamiento_instaurado` | TEXT | Tratamiento aplicado |
+| `formulacion_medica` | TEXT | Receta médica detallada (medicamentos, dosis, frecuencia) |
+| `educacion_paciente` | TEXT | Consejería e indicaciones al paciente |
+| `referencia_contrarreferencia` | TEXT | Remisiones a otros niveles de atención |
+| `estado_egreso` | VARCHAR(50) | Mejorado, Igual, Empeorado, Fallecido, Remitido |
+
+##### 6. Datos del Profesional (8 campos)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `nombre_profesional` | VARCHAR(200) | Nombre del médico o profesional |
+| `tipo_profesional` | VARCHAR(50) | Médico, Enfermero, Odontólogo, etc. |
+| `registro_medico` | VARCHAR(50) | Número de tarjeta profesional |
+| `cargo_servicio` | VARCHAR(100) | Cargo o área de trabajo |
+| `firma_profesional` | TEXT | Campo para firma digital |
+| `firma_paciente` | TEXT | Campo para firma del paciente |
+| `fecha_cierre` | TIMESTAMP | Fecha y hora de cierre de atención |
+| `responsable_registro` | VARCHAR(200) | Persona que registró los datos |
+
+##### 7. Metadatos del Sistema (3 campos)
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `fecha_registro` | TIMESTAMP | Fecha de creación del registro (default: NOW()) |
+| `ultima_actualizacion` | TIMESTAMP | Fecha de última modificación (default: NOW()) |
+| `activo` | BOOLEAN | Estado del registro (default: TRUE) |
+
+---
+
+#### Modelo de Datos - Tabla `usuarios`
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | SERIAL | Identificador único |
+| `username` | VARCHAR(50) | Nombre de usuario (único) |
+| `password_hash` | VARCHAR(255) | Contraseña hasheada con bcrypt |
+| `rol` | VARCHAR(20) | paciente, medico, admisionista, resultados, admin |
+| `nombres` | VARCHAR(200) | Nombres del usuario |
+| `apellidos` | VARCHAR(200) | Apellidos del usuario |
+| `documento_vinculado` | VARCHAR(20) | Referencia al `numero_documento` de pacientes (si aplica) |
+| `activo` | BOOLEAN | Estado de la cuenta (default: TRUE) |
+| `fecha_creacion` | TIMESTAMP | Fecha de creación de la cuenta |
+| `ultimo_acceso` | TIMESTAMP | Última vez que inició sesión |
+
+**Índices**:
+```sql
+CREATE INDEX idx_usuarios_username ON public.usuarios(username);
+CREATE INDEX idx_usuarios_rol ON public.usuarios(rol);
+CREATE INDEX idx_usuarios_documento ON public.usuarios(documento_vinculado);
+```
+
+---
+
+### 🔐 Sistema de Autenticación
+
+#### Flujo de Login Completo
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend (login.html)
+    participant API as FastAPI (/token)
+    participant DB as PostgreSQL
+    participant JWT as JWT Generator
+
+    U->>F: Ingresa credenciales
+    F->>API: POST /token {username, password}
+    API->>DB: SELECT * FROM usuarios WHERE username=?
+    DB-->>API: Usuario encontrado
+    API->>API: Verifica password con bcrypt
+    API->>JWT: Genera token con payload {sub, rol, user_id}
+    JWT-->>API: Token firmado (expira en 30min)
+    API-->>F: {access_token, user: {...}}
+    F->>F: Guarda token en sessionStorage
+    F->>F: Redirige según rol
+    F-->>U: Acceso al panel correspondiente
+```
+
+#### Estructura del Token JWT
+
+```json
+{
+  "header": {
+    "alg": "HS256",
+    "typ": "JWT"
+  },
+  "payload": {
+    "sub": "dr_rodriguez",
+    "rol": "medico",
+    "user_id": 2,
+    "iat": 1732065000,
+    "exp": 1732066800
+  },
+  "signature": "..."
+}
+```
+
+#### Validación de Permisos (Middleware)
+
+```python
+# Ejemplo de uso en endpoints
+@app.get("/pacientes")
+async def listar_pacientes(
+    current_user: Usuario = Depends(require_staff())
+):
+    # Solo médicos, admisionistas, resultados y admin
+    pass
+
+@app.put("/pacientes/{doc}")
+async def actualizar_paciente(
+    doc: str,
+    current_user: Usuario = Depends(require_medico())
+):
+    # Solo médicos y admin
+    pass
+```
+
+---
+
+### 📊 Fragmentación y Distribución con Citus
+
+#### Estrategia de Sharding
+
+```sql
+-- Distribuir tabla por numero_documento (hash distribution)
+SELECT create_distributed_table('public.pacientes', 'numero_documento');
+```
+
+**Resultado**:
+- **32 shards** distribuidos entre coordinator y 2 workers
+- Distribución automática por hash del `numero_documento`
+- Consultas por documento se enrutan al shard correcto
+
+#### Verificación de Distribución
+
+```sql
+-- Ver configuración de tablas distribuidas
+SELECT * FROM citus_tables WHERE table_name::text = 'pacientes';
+
+-- Resultado esperado:
+-- table_name | citus_table_type | distribution_column | shard_count
+-- pacientes  | distributed      | numero_documento    | 32
+```
+
+#### Ventajas de la Fragmentación por Documento
+
+| Ventaja | Descripción |
+|---------|-------------|
+| **Alta Cardinalidad** | Cada documento es único → distribución uniforme |
+| **Localidad de Datos** | Todas las consultas de un paciente van al mismo shard |
+| **Escalabilidad** | Fácil agregar workers sin rebalanceo complejo |
+| **Performance** | Consultas por documento son muy rápidas (un solo shard) |
+
+---
+
+### 🎨 Arquitectura del Frontend
+
+#### Estructura de Archivos
+
+```
+frontend/
+├── templates/
+│   ├── login.html                    # ✅ Login universal
+│   ├── medico.html                   # 👨‍⚕️ Panel médico
+│   ├── paciente.html                 # 🙍 Panel paciente
+│   ├── admisionista.html             # 📋 Panel admisionista
+│   ├── resultados.html               # 🧪 Panel resultados
+│   ├── panel_admin.html              # 👑 Panel admin
+│   ├── registrar_paciente.html       # ➕ Formulario 57 campos
+│   ├── ver_historia_clinica.html     # 📄 Vista completa HC
+│   ├── editar_historia_clinica.html  # ✏️ Edición HC
+│   ├── historia_pdf.html             # 📄 Visor PDF
+│   ├── gestionar_usuarios.html       # 👥 Gestión usuarios (Admin)
+│   └── reportes.html                 # 📊 Reportes (Admin)
+│
+├── static/
+│   ├── js/
+│   │   └── config.js                 # ⚙️ Configuración global + utilidades
+│   └── css/
+│       └── style.css
+│
+├── prueba.py                         # 🚀 Servidor Flask
+└── requirements.txt
+```
+
+#### config.js - Núcleo del Frontend
+
+Este archivo contiene toda la lógica de:
+
+- **Configuración de la API** (`API_CONFIG`)
+- **Autenticación** (`AUTH_UTILS`)
+- **Llamadas a la API** (`API_UTILS`)
+- **Interfaz de usuario** (`UI_UTILS`)
+- **Control de acceso** (`ACCESS_CONTROL`)
+- **Gestión de sesiones** (`SESSION_STATUS_UTILS`)
+
+**Ejemplo de uso**:
+
+```javascript
+// Login
+const response = await API_UTILS.post(ENDPOINTS.LOGIN, {
+    username: "admin",
+    password: "admin"
+});
+AUTH_UTILS.saveAuth(response.access_token, response.user);
+
+// Listar pacientes
+const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_LIST);
+
+// Descargar PDF
+await API_UTILS.downloadFile(
+    ENDPOINTS.PACIENTES_PDF("12345"),
+    "HC_12345.pdf"
+);
+```
+
+---
+
+### 📄 Generación de PDFs con WeasyPrint
+
+#### Características del PDF Generado
+
+- ✅ **Formato Letter** (8.5" × 11")
+- ✅ **57 campos organizados** en 9 secciones
+- ✅ **Encabezado profesional** con logo
+- ✅ **Signos vitales** con formato visual
+- ✅ **Pie de página** con información legal
+- ✅ **Protegido por autenticación** (requiere token JWT válido)
+
+#### Secciones del PDF
+
+1. **👤 Datos de Identificación** (23 campos)
+2. **🏥 Atención Médica** (17 campos)
+3. **📝 Antecedentes** (5 campos)
+4. **💓 Signos Vitales** (9 campos + IMC calculado)
+5. **🔬 Examen Físico y Diagnóstico** (9 campos)
+6. **💊 Conducta y Tratamiento** (7 campos)
+7. **🔬 Procedimientos y Resultados** (7 campos)
+8. **📊 Evolución y Egreso** (3 campos)
+9. **👨‍⚕️ Datos del Profesional** (8 campos)
+
+#### Ejemplo de Descarga
+
+```bash
+# Desde CLI
+TOKEN="<tu_token>"
+curl http://192.168.49.2:30800/pacientes/12345/pdf \
+  -H "Authorization: Bearer $TOKEN" \
+  --output HC_12345.pdf
+
+# Desde Frontend (JavaScript)
+await API_UTILS.downloadFile(
+    ENDPOINTS.PACIENTES_PDF("12345"),
+    "Historia_Clinica_12345.pdf"
+);
+```
+
+---
+
+### 🧪 Testing y Validación
+
+#### Health Checks del Sistema
+
+```bash
+# 1. Verificar API Backend
+curl http://192.168.49.2:30800/health
+
+# Respuesta esperada:
+{
+  "status": "healthy",
+  "database": {
+    "estado": "conectada",
+    "version": "PostgreSQL 12.1 (Debian 12.1-2...",
+    "tablas_requeridas": true,
+    "distribucion_citus": true,
+    "datos": {
+      "usuarios": 7,
+      "pacientes": 3
+    }
+  },
+  "configuracion": {
+    "host": "citus-coordinator",
+    "port": "5432",
+    "database": "historiaclinica"
+  }
+}
+```
+
+#### Pruebas de Endpoints con cURL
+
+##### 1. Login
+
+```bash
+curl -X POST http://192.168.49.2:30800/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "admin"
+  }'
+```
+
+##### 2. Listar Pacientes
+
+```bash
+TOKEN="<access_token>"
+
+curl http://192.168.49.2:30800/pacientes \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+##### 3. Buscar Paciente por Documento
+
+```bash
+curl http://192.168.49.2:30800/pacientes/12345 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+##### 4. Buscar por Nombre
+
+```bash
+curl "http://192.168.49.2:30800/pacientes/buscar/query?nombre=Juan" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+##### 5. Crear Paciente
+
+```bash
+curl -X POST http://192.168.49.2:30800/pacientes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tipo_documento": "CC",
+    "numero_documento": "98765432",
+    "primer_apellido": "García",
+    "primer_nombre": "Laura",
+    "fecha_nacimiento": "1992-08-20",
+    "sexo": "F",
+    "celular": "3201234567"
+  }'
+```
+
+##### 6. Actualizar Paciente
+
+```bash
+curl -X PUT http://192.168.49.2:30800/pacientes/98765432 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "telefono": "3109876543",
+    "motivo_consulta": "Control mensual"
+  }'
+```
+
+##### 7. Exportar PDF
+
+```bash
+curl http://192.168.49.2:30800/pacientes/12345/pdf \
+  -H "Authorization: Bearer $TOKEN" \
+  --output HC_12345.pdf
+```
+
+---
+
+### 🛠️ Troubleshooting
+
+#### Problema 1: "Error de conexión a la base de datos"
+
+**Síntomas**:
+```
+Error: relation "public.pacientes" does not exist
+```
+
+**Solución**:
+```bash
+# Verificar que Citus esté corriendo
+kubectl get pods -n citus
+
+# Si el pod coordinator está corriendo, ejecutar:
+COORDINATOR_POD=$(kubectl get pod -n citus -l app=citus-coordinator -o jsonpath="{.items[0].metadata.name}")
+
+# Verificar tablas
+kubectl exec -n citus $COORDINATOR_POD -- psql -U postgres -d historiaclinica -c "\dt"
+
+# Si no existen las tablas, volver a ejecutar los scripts de inicialización
+cd backend/project
+./setup.sh
+```
+
+---
+
+#### Problema 2: "Token inválido o expirado"
+
+**Síntomas**:
+```json
+{
+  "detail": "Token expirado. Por favor, inicie sesión nuevamente."
+}
+```
+
+**Solución**:
+- Los tokens JWT expiran en **30 minutos**
+- Vuelve a hacer login en `/token` para obtener un nuevo token
+- En el frontend, si ves este error, cierra sesión y vuelve a entrar
+
+**Verificar token desde JavaScript**:
+```javascript
+const tokenInfo = AUTH_UTILS.getTokenInfo();
+console.log("Expira en:", tokenInfo.expiresIn, "segundos");
+
+// Si es negativo, el token expiró
+if (tokenInfo.expiresIn < 0) {
+    AUTH_UTILS.clearAuth();
+    window.location.href = 'login.html';
+}
+```
+
+---
+
+#### Problema 3: "No se puede acceder desde el móvil"
+
+**Síntomas**:
+- Desde PC funciona, pero desde smartphone en la misma red no
+
+**Solución**:
+
+1. **Verificar que NodePort esté activo**:
+```bash
+kubectl get svc -n citus
+
+# Debes ver:
+# middleware-citus-service   NodePort   10.x.x.x   <none>   8000:30800/TCP
+```
+
+2. **Verificar IP de Minikube**:
+```bash
+minikube ip
+# Ejemplo: 192.168.49.2
+```
+
+3. **Desde el móvil, abrir**:
+```
+http://192.168.49.2:30800/docs
+```
+
+4. **Si aún no funciona, ejecutar**:
+```bash
+cd backend/project
+./expose_to_real_network.sh
+```
+
+Esto expone el backend en la IP real de tu máquina (ej: `192.168.1.100:8000`)
+
+---
+
+#### Problema 4: "Error al generar PDF"
+
+**Síntomas**:
+```
+Error al generar PDF: PDF() takes no positional arguments
+```
+
+**Solución**:
+- Ya está corregido en `backend/project/app/pdf_generator.py`
+- Verifica que tengas la versión correcta de WeasyPrint:
+
+```bash
+# Dentro del pod del middleware
+kubectl exec -n citus <middleware-pod> -- pip list | grep -i weasy
+
+# Debe mostrar:
+# WeasyPrint    60.1
+# pydyf         0.10.0  ← IMPORTANTE: debe ser 0.10.0, no 0.11.0+
+```
+
+Si `pydyf` es 0.11.0 o superior:
+```bash
+# Editar backend/project/requirements.txt
+# Cambiar:
+# pydyf==0.10.0  ✅ Correcto
+
+# Reconstruir imagen
+cd backend/project
+docker build --no-cache -t middleware-citus:1.0 .
+minikube image load middleware-citus:1.0
+
+# Redesplegar
+kubectl delete pod -n citus -l app=middleware-citus
+```
+
+---
+
+#### Problema 5: "Pods en estado CrashLoopBackOff"
+
+**Síntomas**:
+```bash
+kubectl get pods -n citus
+# middleware-citus-xxx   0/1   CrashLoopBackOff
+```
+
+**Solución**:
+
+1. **Ver logs del pod**:
+```bash
+kubectl logs -n citus <pod-name>
+```
+
+2. **Causas comunes**:
+
+**a) Falta imagen en Minikube**:
+```bash
+minikube image ls | grep middleware-citus
+# Si no aparece:
+minikube image load middleware-citus:1.0
+```
+
+**b) Error de conexión a Citus**:
+```bash
+# Verificar que coordinator esté corriendo
+kubectl get pods -n citus -l app=citus-coordinator
+
+# Si no está, volver a desplegar Citus
+kubectl apply -f backend/project/citus-deployment.yaml
+```
+
+**c) Secrets mal configurados**:
+```bash
+# Eliminar y recrear secrets
+kubectl delete secret app-secrets -n citus
+
+kubectl create secret generic app-secrets \
+  --from-literal=POSTGRES_HOST=citus-coordinator \
+  --from-literal=POSTGRES_PORT=5432 \
+  --from-literal=POSTGRES_DB=historiaclinica \
+  --from-literal=POSTGRES_USER=postgres \
+  --from-literal=POSTGRES_PASSWORD=password \
+  --from-literal=SECRET_KEY=20240902734 \
+  --from-literal=ALGORITHM=HS256 \
+  --from-literal=ACCESS_TOKEN_EXPIRE_MINUTES=30 \
+  -n citus
+```
+
+---
+
+#### Problema 6: "Frontend no carga o muestra errores CORS"
+
+**Síntomas**:
+```
+Access to fetch at 'http://192.168.49.2:30800/...' from origin 'http://localhost:5000' has been blocked by CORS policy
+```
+
+**Solución**:
+
+1. **Verificar configuración CORS en el backend** (`backend/project/app/main.py`):
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # ⚠️ En producción, especificar orígenes permitidos
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+2. **Verificar URL del backend en el frontend** (`frontend/static/js/config.js`):
+```javascript
+const API_CONFIG = {
+    BASE_URL: 'http://192.168.49.2:30800',  // ← Verificar esta IP
+};
+```
+
+3. **Si el problema persiste, reconstruir y redesplegar**:
+```bash
+cd backend/project
+./clean_and_rebuild.sh
+./deploy_fresh.sh
+```
+
+---
+
+### 📝 Logging y Monitoreo
+
+#### Ver logs en tiempo real
+
+```bash
+# Logs del middleware
+kubectl logs -f -n citus -l app=middleware-citus
+
+# Logs del coordinator
+kubectl logs -f -n citus -l app=citus-coordinator
+
+# Logs de todos los pods
+kubectl logs -f -n citus --all-containers=true
+```
+
+#### Verificar recursos
+
+```bash
+# Uso de CPU y memoria
+kubectl top pods -n citus
+
+# Eventos del namespace
+kubectl get events -n citus --sort-by='.lastTimestamp'
+```
+
+
+
+### 📚 Referencias y Recursos
+
+#### Documentación Oficial
+
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [PostgreSQL + Citus](https://docs.citusdata.com/)
+- [Kubernetes (Minikube)](https://minikube.sigs.k8s.io/docs/)
+- [WeasyPrint](https://doc.courtbouillon.org/weasyprint/)
+- [Flask](https://flask.palletsprojects.com/)
+
+#### Estándares y Normativas
+
+- [HL7 FHIR](https://www.hl7.org/fhir/)
+- [ICD-10 (CIE-10)](https://icd.who.int/browse10/2019/en)
+- [Ley 1581 de 2012 - Protección de Datos Personales (Colombia)](https://www.sic.gov.co/tema/proteccion-de-datos-personales)
+
+#### Artículos y Tutoriales
+
+- [OAuth 2.0 + JWT: Guía Completa](https://auth0.com/docs/secure/tokens/json-web-tokens)
+- [Distributed Databases with Citus](https://www.citusdata.com/blog/2023/09/01/distributed-databases/)
+- [Microservicios con FastAPI y Kubernetes](https://testdriven.io/blog/fastapi-kubernetes/)
+
+---
+
+### 👥 Autores y Contribuidores
+
+**Equipo de Desarrollo**:
+- **Backend & DevSecOps**: Juan Herrera
+- **Frontend & UX**: Samuel Rodriguez
+
+**Institución**: UAJS  
+**Asignatura**: Sistemas Distribuidos  
+**Fecha**: Noviembre 2025  
+
+---
+
+### 📄 Licencia
+
+Este proyecto es de código abierto bajo la licencia **MIT**. Consulta el archivo `LICENSE` para más detalles.
+
+---
+
+### 🙏 Agradecimientos
+

@@ -1417,5 +1417,3 @@ Este proyecto es de código abierto bajo la licencia **MIT**. Consulta el archiv
 
 ---
 
-### 🙏 Agradecimientos
-

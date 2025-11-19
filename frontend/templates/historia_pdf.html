@@ -137,11 +137,17 @@
 
     </div>
 
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
         let documentoActual = null;
         let pdfBlob = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                cargarPDF();
+            }
+        });
 
         // ==================== OBTENER DOCUMENTO ====================
         function getDocumentoFromURL() {
@@ -151,78 +157,42 @@
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
-                alert('Sesión expirada. Redirigiendo al login...');
-                window.location.href = 'login.html';
+            if (!AUTH_UTILS.isAuthenticated()) {
+                UI_UTILS.showAlert('Sesión expirada. Redirigiendo al login...', 'danger');
+                setTimeout(() => window.location.href = 'login.html', 2000);
                 return false;
             }
-
             return true;
         }
 
         // ==================== CARGAR PDF ====================
         async function cargarPDF() {
             documentoActual = getDocumentoFromURL();
-
             if (!documentoActual) {
                 mostrarError('No se especificó el documento del paciente');
                 return;
             }
-
             document.getElementById('documentoHeader').textContent = documentoActual;
 
-            const token = sessionStorage.getItem('token');
-
             try {
-                // Llamar al endpoint /pacientes/{documento}/pdf
-                const response = await fetch(`${API_URL}/pacientes/${documentoActual}/pdf`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    // Obtener el PDF como blob
-                    pdfBlob = await response.blob();
-
-                    // Crear URL del blob
+                const blob = await API_UTILS.downloadFile(ENDPOINTS.PACIENTES_PDF(documentoActual));
+                if (blob) {
+                    pdfBlob = blob;
                     const blobURL = window.URL.createObjectURL(pdfBlob);
-
-                    // Cargar en el iframe
                     document.getElementById('pdfFrame').src = blobURL;
-
-                    // Ocultar loading
                     ocultarLoading();
-
-                } else if (response.status === 404) {
-                    mostrarError('Paciente no encontrado');
-                } else if (response.status === 401) {
-                    mostrarError('Sesión expirada. Por favor inicie sesión nuevamente.');
-                    setTimeout(() => {
-                        window.location.href = 'login.html';
-                    }, 2000);
-                } else {
-                    const error = await response.json();
-                    mostrarError(error.detail || 'Error al generar el PDF');
                 }
-
             } catch (error) {
-                console.error('Error:', error);
-                mostrarError('Error de conexión con el servidor. Verifique que el backend esté activo.');
+                mostrarError(error.message || 'Error al generar el PDF');
             }
         }
 
         // ==================== DESCARGAR PDF ====================
         function descargarPDF() {
             if (!pdfBlob) {
-                alert('El PDF aún no se ha cargado');
+                UI_UTILS.showAlert('El PDF aún no se ha cargado', 'warning');
                 return;
             }
-
-            // Crear enlace de descarga
             const url = window.URL.createObjectURL(pdfBlob);
             const a = document.createElement('a');
             a.href = url;
@@ -231,9 +201,7 @@
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-
-            // Mostrar confirmación
-            mostrarAlerta('PDF descargado correctamente', 'success');
+            UI_UTILS.showAlert('PDF descargado correctamente', 'success');
         }
 
         // ==================== UTILIDADES ====================
@@ -259,36 +227,13 @@
             window.history.back();
         }
 
-        function mostrarAlerta(mensaje, tipo = 'info') {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
-            alertDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px;';
-            alertDiv.innerHTML = `
-                ${mensaje}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(alertDiv);
-
-            setTimeout(() => {
-                alertDiv.remove();
-            }, 3000);
-        }
-
         // ==================== MANEJO DE ERRORES DEL IFRAME ====================
         document.getElementById('pdfFrame').addEventListener('error', () => {
             mostrarError('Error al cargar el visor de PDF. Intente descargar el archivo.');
         });
 
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                cargarPDF();
-            }
-        });
-
         // ==================== PREVENIR NAVEGACIÓN ACCIDENTAL ====================
         window.addEventListener('beforeunload', (e) => {
-            // Limpiar la URL del blob al salir
             if (pdfBlob) {
                 const iframe = document.getElementById('pdfFrame');
                 if (iframe.src) {
@@ -297,7 +242,5 @@
             }
         });
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

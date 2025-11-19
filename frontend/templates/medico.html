@@ -15,6 +15,7 @@
         .navbar-custom {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .navbar-custom .navbar-brand {
             color: white;
@@ -40,7 +41,7 @@
             font-size: 2.5rem;
             font-weight: 700;
         }
-        .action-btn {
+        .btn-action {
             border-radius: 10px;
             padding: 1rem;
             font-weight: 600;
@@ -54,6 +55,7 @@
         .btn-primary-custom:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
         }
         .search-container {
             background: white;
@@ -64,6 +66,21 @@
         .table-hover tbody tr:hover {
             background-color: #f1f3f5;
         }
+        .loading {
+            text-align: center;
+            padding: 3rem;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .user-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -72,8 +89,9 @@
     <nav class="navbar navbar-custom">
         <div class="container-fluid">
             <span class="navbar-brand">🏥 Panel Médico</span>
-            <div class="d-flex align-items-center">
-                <span class="text-white me-3">👨‍⚕️ <span id="userName"></span></span>
+            <div class="user-info text-white">
+                <span id="userName">Cargando...</span>
+                <span class="user-badge" id="userRole">--</span>
                 <button class="btn btn-outline-light btn-sm" onclick="logout()">Cerrar Sesión</button>
             </div>
         </div>
@@ -189,7 +207,13 @@
         <div id="patientList" class="card card-dashboard d-none">
             <div class="card-body">
                 <h5 class="card-title">📋 Listado de Pacientes</h5>
-                <div class="table-responsive">
+                <div id="loadingTable" class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-3">Cargando pacientes...</p>
+                </div>
+                <div class="table-responsive d-none" id="tableWrapper">
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -208,124 +232,150 @@
 
     </div>
 
+    <script src="../static/js/config.js"></script>
+
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
 
-        // ==================== VERIFICAR AUTENTICACIÓN ====================
-        function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
-                window.location.href = 'login.html';
-                return false;
-            }
-
-            const userData = JSON.parse(user);
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🏥 Panel Médico cargando...');
             
-            if (userData.rol !== 'medico' && userData.rol !== 'admin') {
-                alert('Acceso denegado');
-                window.location.href = 'login.html';
-                return false;
+            // Verificar autenticación
+            if (!ACCESS_CONTROL.requireRole([ROLES.MEDICO, ROLES.ADMIN])) {
+                return;
             }
 
-            document.getElementById('userName').textContent = userData.nombres || userData.username;
-            return true;
+            // Cargar datos iniciales
+            cargarInfoUsuario();
+            cargarEstadisticas();
+        });
+
+        // ==================== CARGAR INFO DEL USUARIO ====================
+
+        function cargarInfoUsuario() {
+            const user = AUTH_UTILS.getUser();
+            const token = AUTH_UTILS.getTokenInfo();
+
+            if (user) {
+                document.getElementById('userName').textContent = `👨‍⚕️ ${user.nombres || user.username}`;
+                document.getElementById('userRole').textContent = user.rol.toUpperCase();
+            }
+
+            // Validar token
+            if (token) {
+                console.log(`✅ Token válido por: ${token.expiresIn}s`);
+                if (token.expiresIn < 300) {
+                    UI_UTILS.showAlert('⚠️ Tu sesión expirará pronto', 'warning');
+                }
+            }
         }
 
-        // ==================== LOGOUT ====================
-        function logout() {
-            sessionStorage.clear();
-            window.location.href = 'login.html';
+        // ==================== CARGAR ESTADÍSTICAS ====================
+
+        async function cargarEstadisticas() {
+            try {
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_LIST + '?limit=100');
+                
+                if (pacientes && pacientes.length > 0) {
+                    document.getElementById('totalPacientes').textContent = pacientes.length;
+                    
+                    // Contar consultas de hoy
+                    const hoy = new Date().toDateString();
+                    const consultasHoy = pacientes.filter(p => {
+                        if (p.fecha_atencion) {
+                            const fecha = new Date(p.fecha_atencion).toDateString();
+                            return fecha === hoy;
+                        }
+                        return false;
+                    }).length;
+                    
+                    document.getElementById('consultasHoy').textContent = consultasHoy;
+                }
+            } catch (error) {
+                console.error('Error cargando estadísticas:', error);
+                UI_UTILS.showAlert('❌ Error al cargar estadísticas', 'danger');
+            }
         }
 
-        // ==================== BUSCAR POR DOCUMENTO ====================
+        // ==================== BÚSQUEDA POR DOCUMENTO ====================
+
         async function buscarPorDocumento() {
             const documento = document.getElementById('searchDoc').value.trim();
             
             if (!documento) {
-                alert('Ingrese un número de documento');
+                UI_UTILS.showAlert('⚠️ Ingrese un número de documento', 'warning');
                 return;
             }
 
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
-                    mostrarResultadoBusqueda([paciente]);
-                } else if (response.status === 404) {
-                    alert('Paciente no encontrado');
-                } else {
-                    alert('Error en la búsqueda');
-                }
+                UI_UTILS.showLoading('Buscando paciente...');
+                
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documento));
+                
+                UI_UTILS.hideLoading();
+                mostrarResultadoBusqueda([paciente]);
+                
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.hideLoading();
+                console.error('Error en búsqueda:', error);
+                UI_UTILS.showAlert('❌ Paciente no encontrado', 'danger');
             }
         }
 
-        // ==================== BUSCAR POR NOMBRE ====================
+        // ==================== BÚSQUEDA POR NOMBRE ====================
+
         async function buscarPorNombre() {
             const nombre = document.getElementById('searchNombre').value.trim();
             
             if (!nombre) {
-                alert('Ingrese un nombre');
+                UI_UTILS.showAlert('⚠️ Ingrese un nombre', 'warning');
                 return;
             }
 
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/buscar/query?nombre=${encodeURIComponent(nombre)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    if (pacientes.length === 0) {
-                        alert('No se encontraron pacientes');
-                    } else {
-                        mostrarResultadoBusqueda(pacientes);
-                    }
+                UI_UTILS.showLoading('Buscando pacientes...');
+                
+                const pacientes = await API_UTILS.get(
+                    ENDPOINTS.PACIENTES_SEARCH + `?nombre=${encodeURIComponent(nombre)}`
+                );
+                
+                UI_UTILS.hideLoading();
+                
+                if (pacientes && pacientes.length > 0) {
+                    mostrarResultadoBusqueda(pacientes);
                 } else {
-                    alert('Error en la búsqueda');
+                    UI_UTILS.showAlert('⚠️ No se encontraron pacientes', 'warning');
                 }
+                
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.hideLoading();
+                console.error('Error en búsqueda:', error);
+                UI_UTILS.showAlert('❌ Error en la búsqueda', 'danger');
             }
         }
 
         // ==================== MOSTRAR RESULTADOS ====================
+
         function mostrarResultadoBusqueda(pacientes) {
             const resultsDiv = document.getElementById('searchResults');
             
-            if (pacientes.length === 0) {
-                resultsDiv.innerHTML = '<p class="text-muted">No se encontraron resultados</p>';
+            if (!pacientes || pacientes.length === 0) {
+                resultsDiv.innerHTML = '<p class="text-muted">No hay resultados</p>';
                 return;
             }
 
-            let html = '<div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Documento</th><th>Nombre</th><th>Edad</th><th>Acciones</th></tr></thead><tbody>';
+            let html = '<div class="table-responsive"><table class="table table-bordered table-sm"><thead class="table-light"><tr><th>Documento</th><th>Nombre</th><th>Edad</th><th>Acciones</th></tr></thead><tbody>';
 
             pacientes.forEach(p => {
+                const nombre = p.nombre_completo || `${p.primer_nombre || ''} ${p.primer_apellido || ''}`;
                 html += `
                     <tr>
                         <td>${p.numero_documento}</td>
-                        <td>${p.nombre_completo || `${p.primer_nombre} ${p.primer_apellido}`}</td>
+                        <td>${nombre}</td>
                         <td>${p.edad || 'N/A'}</td>
                         <td>
-                            <button class="btn btn-sm btn-info text-white" onclick="verHistoria('${p.numero_documento}')">
-                                📄 Ver Historia
+                            <button class="btn btn-sm btn-primary" onclick="verHistoria('${p.numero_documento}')">
+                                📄 Ver
                             </button>
                         </td>
                     </tr>
@@ -337,44 +387,44 @@
         }
 
         // ==================== LISTAR TODOS LOS PACIENTES ====================
-        async function listarPacientes() {
-            const token = sessionStorage.getItem('token');
-            
-            try {
-                const response = await fetch(`${API_URL}/pacientes?limit=50`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
 
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    mostrarListadoCompleto(pacientes);
-                    document.getElementById('totalPacientes').textContent = pacientes.length;
-                } else {
-                    alert('Error al cargar pacientes');
-                }
+        async function listarPacientes() {
+            try {
+                const patientList = document.getElementById('patientList');
+                patientList.classList.remove('d-none');
+                document.getElementById('tableWrapper').classList.add('d-none');
+                document.getElementById('loadingTable').classList.remove('d-none');
+                
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_LIST + '?limit=100');
+                
+                document.getElementById('loadingTable').classList.add('d-none');
+                document.getElementById('tableWrapper').classList.remove('d-none');
+                
+                mostrarListadoCompleto(pacientes);
+                
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                console.error('Error al listar:', error);
+                UI_UTILS.showAlert('❌ Error al cargar pacientes', 'danger');
+                document.getElementById('loadingTable').classList.add('d-none');
             }
         }
 
         // ==================== MOSTRAR LISTADO COMPLETO ====================
+
         function mostrarListadoCompleto(pacientes) {
-            const listDiv = document.getElementById('patientList');
             const tbody = document.getElementById('patientTableBody');
-            
-            listDiv.classList.remove('d-none');
             
             let html = '';
             pacientes.forEach(p => {
+                const nombre = p.nombre_completo || `${p.primer_nombre || ''} ${p.primer_apellido || ''}`;
+                const fecha = p.fecha_atencion ? UI_UTILS.formatDate(p.fecha_atencion) : 'N/A';
+                
                 html += `
                     <tr>
                         <td>${p.numero_documento}</td>
-                        <td>${p.nombre_completo || `${p.primer_nombre} ${p.primer_apellido}`}</td>
+                        <td>${nombre}</td>
                         <td>${p.edad || 'N/A'} años</td>
-                        <td>${p.fecha_atencion ? new Date(p.fecha_atencion).toLocaleDateString() : 'N/A'}</td>
+                        <td>${fecha}</td>
                         <td>
                             <button class="btn btn-sm btn-primary" onclick="verHistoria('${p.numero_documento}')">
                                 Ver
@@ -382,7 +432,7 @@
                             <button class="btn btn-sm btn-success" onclick="editarHistoria('${p.numero_documento}')">
                                 Editar
                             </button>
-                            <button class="btn btn-sm btn-danger" onclick="exportarPDF('${p.numero_documento}')">
+                            <button class="btn btn-sm btn-info" onclick="exportarPDF('${p.numero_documento}')">
                                 PDF
                             </button>
                         </td>
@@ -394,58 +444,53 @@
         }
 
         // ==================== VER HISTORIA ====================
+
         function verHistoria(documento) {
             window.location.href = `ver_historia_clinica.html?documento=${documento}`;
         }
 
         // ==================== EDITAR HISTORIA ====================
+
         function editarHistoria(documento) {
             window.location.href = `editar_historia_clinica.html?documento=${documento}`;
         }
 
         // ==================== EXPORTAR PDF ====================
-        async function exportarPDF(documento) {
-            const token = sessionStorage.getItem('token');
-            
-            try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}/pdf`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
 
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `HC_${documento}_${new Date().toISOString().split('T')[0]}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
-                    alert('Error al generar PDF');
+        async function exportarPDF(documento) {
+            try {
+                UI_UTILS.showLoading('Generando PDF...');
+                
+                const filename = `HC_${documento}_${new Date().toISOString().split('T')[0]}.pdf`;
+                const success = await API_UTILS.downloadFile(ENDPOINTS.PACIENTES_PDF(documento), filename);
+                
+                UI_UTILS.hideLoading();
+                
+                if (success) {
+                    UI_UTILS.showAlert('✅ PDF descargado correctamente', 'success');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.hideLoading();
+                console.error('Error descargando PDF:', error);
+                UI_UTILS.showAlert('❌ Error al generar PDF', 'danger');
             }
         }
 
         // ==================== VER ESTADÍSTICAS ====================
+
         function verEstadisticas() {
-            alert('Funcionalidad de estadísticas en desarrollo');
+            UI_UTILS.showAlert('📊 Funcionalidad de estadísticas en desarrollo', 'info');
         }
 
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                listarPacientes();
-            }
-        });
-    </script>
+        // ==================== LOGOUT ====================
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        function logout() {
+            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+                AUTH_UTILS.clearAuth();
+                UI_UTILS.showAlert('✅ Sesión cerrada', 'success', 1500);
+                setTimeout(() => window.location.href = 'login.html', 1500);
+            }
+        }
+    </script>
 </body>
 </html>

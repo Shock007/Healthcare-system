@@ -77,62 +77,40 @@
                 </div>
             </div>
 
-            <div class="text-center mt-3">
-                <button class="btn btn-secondary" onclick="window.location.href='vista_medico.html'">
-                    ⬅ Volver
-                </button>
-            </div>
-
-        </div>
-
-    </div>
-
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                cargarPacientes();
+            }
+        });
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
+            const user = AUTH_UTILS.getUser();
+            if (!user) {
                 window.location.href = 'login.html';
                 return false;
             }
-
-            const userData = JSON.parse(user);
             
-            if (userData.rol !== 'medico' && userData.rol !== 'admin') {
-                alert('Acceso denegado');
+            if (user.rol !== 'medico' && user.rol !== 'admin') {
+                UI_UTILS.showAlert('Acceso denegado', 'danger');
                 window.location.href = 'login.html';
                 return false;
             }
 
-            document.getElementById('userName').textContent = userData.nombres || userData.username;
+            document.getElementById('userName').textContent = user.nombres || user.username;
             return true;
         }
 
         // ==================== CARGAR PACIENTES ====================
         async function cargarPacientes() {
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes?limit=100`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    mostrarPacientes(pacientes);
-                } else {
-                    alert('Error al cargar pacientes');
-                }
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_LIST + '?limit=100');
+                mostrarPacientes(pacientes);
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al cargar pacientes', 'danger');
             }
         }
 
@@ -151,7 +129,7 @@
 
             pacientes.forEach(p => {
                 const nombreCompleto = p.nombre_completo || `${p.primer_nombre || ''} ${p.primer_apellido || ''}`.trim();
-                const fecha = p.fecha_atencion ? new Date(p.fecha_atencion).toLocaleDateString() : 'N/A';
+                const fecha = p.fecha_atencion ? UI_UTILS.formatDate(p.fecha_atencion) : 'N/A';
                 
                 html += `
                     <tr>
@@ -175,13 +153,6 @@
         function verHistoria(documento) {
             window.location.href = `ver_historia_clinica.html?documento=${documento}`;
         }
-
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                cargarPacientes();
-            }
-        });
     </script>
 </body>
 </html>

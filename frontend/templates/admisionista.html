@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admisionista - HCE</title>
+    <title>Panel Admisionista - HCE </title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     
@@ -126,7 +126,7 @@
 
         <!-- Acciones Principales -->
         <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <div class="card-dashboard">
                     <div class="text-center mb-3" style="font-size: 4rem;">➕</div>
                     <h4 class="text-center mb-3">Registrar Nuevo Paciente</h4>
@@ -137,13 +137,24 @@
                 </div>
             </div>
 
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <div class="card-dashboard">
-                    <div class="text-center mb-3" style="font-size: 4rem;">📋</div>
-                    <h4 class="text-center mb-3">Ver Pacientes Registrados</h4>
-                    <p class="text-center text-muted">Listado completo de pacientes</p>
-                    <button class="action-btn" onclick="listarPacientes()">
-                        Ver Listado
+                    <div class="text-center mb-3" style="font-size: 4rem;">👥</div>
+                    <h4 class="text-center mb-3">Gestionar Usuarios</h4>
+                    <p class="text-center text-muted">Administrar cuentas de usuario</p>
+                    <button class="action-btn" onclick="window.location.href='gestionar_usuarios.html'">
+                        Gestionar
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card-dashboard">
+                    <div class="text-center mb-3" style="font-size: 4rem;">📊</div>
+                    <h4 class="text-center mb-3">Ver Reportes</h4>
+                    <p class="text-center text-muted">Visualizar estadísticas del sistema</p>
+                    <button class="action-btn" onclick="window.location.href='reportes.html'">
+                        Ver Reportes
                     </button>
                 </div>
             </div>
@@ -183,30 +194,18 @@
         </div>
     </div>
 
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                listarPacientes();
+            }
+        });
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
-                window.location.href = 'login.html';
-                return false;
-            }
-
-            const userData = JSON.parse(user);
-            
-            if (userData.rol !== 'admisionista' && userData.rol !== 'admin') {
-                alert('Acceso denegado');
-                window.location.href = 'login.html';
-                return false;
-            }
-
-            document.getElementById('userName').textContent = userData.nombres || userData.username;
-            return true;
+            return ACCESS_CONTROL.requireRole([ROLES.ADMISIONISTA, ROLES.ADMIN]);
         }
 
         // ==================== LOGOUT ====================
@@ -220,32 +219,15 @@
             const documento = document.getElementById('searchDoc').value.trim();
             
             if (!documento) {
-                alert('Ingrese un número de documento');
+                UI_UTILS.showAlert('Ingrese un número de documento', 'warning');
                 return;
             }
 
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
-                    mostrarDetallesPaciente(paciente);
-                } else if (response.status === 404) {
-                    alert('Paciente no encontrado');
-                    document.getElementById('searchResults').innerHTML = 
-                        '<div class="alert alert-warning">No se encontró ningún paciente con ese documento</div>';
-                } else {
-                    alert('Error en la búsqueda');
-                }
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documento));
+                mostrarDetallesPaciente(paciente);
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Paciente no encontrado', 'danger');
             }
         }
 
@@ -254,31 +236,20 @@
             const nombre = document.getElementById('searchNombre').value.trim();
             
             if (!nombre) {
-                alert('Ingrese un nombre');
+                UI_UTILS.showAlert('Ingrese un nombre', 'warning');
                 return;
             }
 
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/buscar/query?nombre=${encodeURIComponent(nombre)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    if (pacientes.length === 0) {
-                        document.getElementById('searchResults').innerHTML = 
-                            '<div class="alert alert-info">No se encontraron pacientes</div>';
-                    } else {
-                        mostrarResultadosBusqueda(pacientes);
-                    }
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_SEARCH + `?nombre=${encodeURIComponent(nombre)}`);
+                if (pacientes.length === 0) {
+                    document.getElementById('searchResults').innerHTML = 
+                        '<div class="alert alert-info">No se encontraron pacientes</div>';
+                } else {
+                    mostrarResultadosBusqueda(pacientes);
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error en la búsqueda', 'danger');
             }
         }
 
@@ -309,25 +280,12 @@
 
         // ==================== LISTAR TODOS LOS PACIENTES ====================
         async function listarPacientes() {
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes?limit=100`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    mostrarListadoCompleto(pacientes);
-                    document.getElementById('totalRegistrados').textContent = pacientes.length;
-                } else {
-                    alert('Error al cargar pacientes');
-                }
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_LIST + '?limit=100');
+                mostrarListadoCompleto(pacientes);
+                document.getElementById('totalRegistrados').textContent = pacientes.length;
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al cargar pacientes', 'danger');
             }
         }
 
@@ -360,21 +318,12 @@
 
         // ==================== VER DETALLE ====================
         async function verDetalle(documento) {
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
-                    mostrarDetallesPaciente(paciente);
-                }
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documento));
+                mostrarDetallesPaciente(paciente);
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error al cargar detalles:', error);
+                UI_UTILS.showAlert('No se pudieron cargar los detalles del paciente.', 'danger');
             }
         }
 
@@ -407,15 +356,6 @@
             const modal = new bootstrap.Modal(document.getElementById('modalDetalles'));
             modal.show();
         }
-
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                listarPacientes();
-            }
-        });
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

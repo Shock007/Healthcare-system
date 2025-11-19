@@ -1,138 +1,286 @@
+#!/usr/bin/env python3
 """
-prueba.py - OPCIÓN A: Servidor Simple de Archivos Estáticos
-============================================================
+prueba.py - Servidor Flask para Frontend
+📌 Ubicación: frontend/prueba.py
 
-Esta opción sirve los archivos HTML directamente sin procesamiento backend.
-Todo el procesamiento se hace en el navegador con JavaScript llamando a FastAPI.
+Sirve archivos estáticos HTML del frontend y proporciona
+conexión con la API FastAPI en el backend.
 
-VENTAJAS:
-- Simple y ligero
-- Sin lógica de backend en Flask
-- Todo el estado en el navegador (sessionStorage)
-
-DESVENTAJAS:
-- No hay server-side rendering (SSR)
-- No hay sessions del servidor
-
-USO:
-python prueba.py
-Luego abrir: http://localhost:5000
+Uso:
+    python3 prueba.py
+    
+Luego abrir en navegador:
+    http://localhost:5000/login.html
 """
 
-from flask import Flask, send_from_directory, redirect
 import os
+import sys
+from pathlib import Path
+from flask import Flask, send_from_directory, render_template_string, jsonify
+from flask_cors import CORS
+import logging
 
-app = Flask(__name__)
+# ==================== CONFIGURACIÓN BÁSICA ====================
 
-# Rutas base
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
-STATIC_DIR = os.path.join(BASE_DIR, 'static')
+# Configurar rutas
+BASE_DIR = Path(__file__).parent
+TEMPLATES_DIR = BASE_DIR / 'templates'
+STATIC_DIR = BASE_DIR / 'static'
 
-# ==================== CONFIGURACIÓN ====================
-app.config['TEMPLATES_AUTO_RELOAD'] = True
+# Crear aplicación Flask
+app = Flask(__name__, 
+    template_folder=str(TEMPLATES_DIR),
+    static_folder=str(STATIC_DIR),
+    static_url_path='/static'
+)
 
-# ==================== RUTAS ====================
+# Configurar CORS
+CORS(app)
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# ==================== VALIDACIONES INICIALES ====================
+
+def validar_estructura():
+    """Valida que la estructura de carpetas sea correcta"""
+    if not TEMPLATES_DIR.exists():
+        logger.warning(f"⚠️  Directorio templates no existe: {TEMPLATES_DIR}")
+        logger.info("📁 Creando directorio...")
+        TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+    
+    if not STATIC_DIR.exists():
+        logger.warning(f"⚠️  Directorio static no existe: {STATIC_DIR}")
+        logger.info("📁 Creando directorio...")
+        STATIC_DIR.mkdir(parents=True, exist_ok=True)
+        (STATIC_DIR / 'js').mkdir(exist_ok=True)
+        (STATIC_DIR / 'css').mkdir(exist_ok=True)
+        (STATIC_DIR / 'img').mkdir(exist_ok=True)
+
+# ==================== RUTAS PRINCIPALES ====================
 
 @app.route('/')
 def index():
-    """Redirige al login"""
-    return redirect('/login.html')
+    """Ruta raíz - redirige al login"""
+    logger.info("📍 Acceso a raíz - redirigiendo a login")
+    return send_from_directory(TEMPLATES_DIR, 'login.html')
 
-@app.route('/<path:filename>')
-def serve_template(filename):
-    """
-    Sirve cualquier archivo HTML desde templates/
-    Ejemplos:
-    - /login.html
-    - /medico.html
-    - /registrar_paciente.html
-    """
-    if filename.endswith('.html'):
-        return send_from_directory(TEMPLATES_DIR, filename)
-    else:
-        return "Archivo no encontrado", 404
+@app.route('/login.html')
+def login():
+    """Página de inicio de sesión"""
+    logger.info("🔐 Cargando login.html")
+    return send_from_directory(TEMPLATES_DIR, 'login.html')
+
+@app.route('/<filename>.html')
+def serve_html(filename):
+    """Sirve archivos HTML desde templates"""
+    try:
+        filepath = TEMPLATES_DIR / f"{filename}.html"
+        
+        if not filepath.exists():
+            logger.warning(f"❌ Archivo no encontrado: {filepath}")
+            return "Archivo no encontrado", 404
+        
+        logger.info(f"📄 Sirviendo: {filename}.html")
+        return send_from_directory(TEMPLATES_DIR, f"{filename}.html")
+        
+    except Exception as e:
+        logger.error(f"❌ Error sirviendo {filename}.html: {e}")
+        return f"Error: {str(e)}", 500
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    """
-    Sirve archivos estáticos (CSS, JS, imágenes)
-    Ejemplo: /static/js/config.js
-    """
-    return send_from_directory(STATIC_DIR, filename)
+    """Sirve archivos estáticos (CSS, JS, imágenes)"""
+    try:
+        logger.debug(f"📦 Sirviendo estático: {filename}")
+        return send_from_directory(STATIC_DIR, filename)
+    except Exception as e:
+        logger.warning(f"⚠️  No se encontró estático: {filename}")
+        return "Archivo no encontrado", 404
 
-@app.route('/templates/<path:filename>')
-def serve_template_alt(filename):
-    """
-    Ruta alternativa para templates
-    Por si algún HTML hace referencia a /templates/
-    """
-    return send_from_directory(TEMPLATES_DIR, filename)
+@app.route('/api/config')
+def get_config():
+    """Retorna configuración del frontend (para validar conexiones)"""
+    return jsonify({
+        'frontend': {
+            'version': '2.0.0',
+            'base_url': 'http://localhost:5000',
+            'templates': list(TEMPLATES_DIR.glob('*.html'))
+        },
+        'backend': {
+            'api_url': 'http://192.168.49.2:30800',
+            'endpoints': {
+                'health': '/health',
+                'login': '/token',
+                'pacientes': '/pacientes'
+            }
+        }
+    })
 
 # ==================== MANEJO DE ERRORES ====================
 
 @app.errorhandler(404)
 def not_found(error):
-    return """
+    """Manejo de error 404"""
+    logger.warning(f"404 - Recurso no encontrado: {error}")
+    return render_template_string('''
+    <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="UTF-8">
         <title>404 - No Encontrado</title>
         <style>
-            body { font-family: Arial; text-align: center; padding: 50px; }
-            h1 { color: #e74c3c; }
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                padding: 50px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .container {
+                background: white;
+                color: #333;
+                padding: 2rem;
+                border-radius: 15px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            }
+            h1 { color: #e74c3c; font-size: 3rem; margin: 0; }
+            p { color: #666; margin: 1rem 0; }
+            a {
+                display: inline-block;
+                background: #667eea;
+                color: white;
+                padding: 0.75rem 2rem;
+                border-radius: 8px;
+                text-decoration: none;
+                margin-top: 1rem;
+            }
+            a:hover { background: #764ba2; }
         </style>
     </head>
     <body>
-        <h1>404 - Página no encontrada</h1>
-        <p>El archivo que buscas no existe.</p>
-        <a href="/">Volver al inicio</a>
+        <div class="container">
+            <h1>404</h1>
+            <p>La página que buscas no existe.</p>
+            <a href="/">← Volver al inicio</a>
+        </div>
     </body>
     </html>
-    """, 404
+    '''), 404
 
-# ==================== INFORMACIÓN DE INICIO ====================
+@app.errorhandler(500)
+def server_error(error):
+    """Manejo de error 500"""
+    logger.error(f"500 - Error del servidor: {error}")
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>500 - Error del Servidor</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                padding: 50px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .container {
+                background: white;
+                color: #333;
+                padding: 2rem;
+                border-radius: 15px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            }
+            h1 { color: #e74c3c; font-size: 3rem; margin: 0; }
+            p { color: #666; margin: 1rem 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>500</h1>
+            <p>Error interno del servidor.</p>
+        </div>
+    </body>
+    </html>
+    '''), 500
 
+# ==================== INICIALIZACIÓN ====================
 
-def show_info():
-    """Muestra información al iniciar el servidor"""
-    print("\n" + "="*60)
-    print("🏥 SERVIDOR DE FRONTEND - HISTORIA CLÍNICA ELECTRÓNICA")
-    print("="*60)
-    print("\n📂 Directorios configurados:")
-    print(f"   Templates: {TEMPLATES_DIR}")
-    print(f"   Static: {STATIC_DIR}")
-    print("\n🌐 URLs disponibles:")
-    print("   - http://localhost:5000/")
-    print("   - http://localhost:5000/login.html")
-    print("   - http://localhost:5000/medico.html")
-    print("   - http://localhost:5000/static/js/config.js")
-    print("\n⚙️  Configuración del Backend API:")
-    print("   - Editar en: static/js/config.js")
-    print("   - Variable: API_CONFIG.BASE_URL")
-    print("\n✅ Servidor listo. Presiona Ctrl+C para detener.")
-    print("="*60 + "\n")
+def mostrar_informacion():
+    """Muestra información de inicio"""
+    print("\n" + "="*70)
+    print("🏥 FRONTEND - SISTEMA DE HISTORIA CLÍNICA")
+    print("="*70)
+    
+    print(f"""
+📂 Configuración:
+   • Base: {BASE_DIR}
+   • Templates: {TEMPLATES_DIR}
+   • Estáticos: {STATIC_DIR}
 
-# ==================== INICIAR SERVIDOR ====================
+🌐 URLs disponibles:
+   • http://localhost:5000/              (Raíz → Login)
+   • http://localhost:5000/login.html    (Login)
+   • http://localhost:5000/medico.html   (Panel Médico)
+   • http://localhost:5000/paciente.html (Panel Paciente)
+   • http://localhost:5000/admisionista.html (Panel Admisionista)
+   • http://localhost:5000/panel_admin.html (Panel Admin)
+   • http://localhost:5000/gestionar_usuarios.html (Gestion de Usuarios)
+   • http://localhost:5000/reportes.html (Reportes)
+   • http://localhost:5000/static/       (Recursos)
+
+🔗 Backend (FastAPI):
+   • URL: http://192.168.49.2:30800
+   • Health: http://192.168.49.2:30800/health
+   • Docs: http://192.168.49.2:30800/docs
+
+⚙️  Configuración:
+   • DEBUG: False
+   • HOST: 0.0.0.0
+   • PORT: 5000
+   • CORS: Habilitado
+
+📖 Comandos útiles:
+   • Ver config: http://localhost:5000/api/config
+   • Probar conexión: curl http://localhost:5000/health
+
+✅ Servidor listo. Presiona Ctrl+C para detener.
+""")
+    print("="*70 + "\n")
 
 if __name__ == '__main__':
-    # Verificar que existen los directorios
-    if not os.path.exists(TEMPLATES_DIR):
-        print(f"❌ ERROR: No se encuentra el directorio {TEMPLATES_DIR}")
-        exit(1)
+    # Validar estructura
+    validar_estructura()
     
-    if not os.path.exists(STATIC_DIR):
-        print(f"⚠️  ADVERTENCIA: No se encuentra {STATIC_DIR}")
-        print("   Creando directorio...")
-        os.makedirs(STATIC_DIR, exist_ok=True)
-        os.makedirs(os.path.join(STATIC_DIR, 'js'), exist_ok=True)
-        os.makedirs(os.path.join(STATIC_DIR, 'css'), exist_ok=True)
-        os.makedirs(os.path.join(STATIC_DIR, 'img'), exist_ok=True)
+    # Mostrar información
+    mostrar_informacion()
     
-    # Iniciar servidor
-    show_info()
-    app.run(
-        host='0.0.0.0',  # Accesible desde toda la red local
-        port=5000,
-        debug=True,
-        use_reloader=True
-    )
+    try:
+        # Iniciar servidor
+        app.run(
+            host='0.0.0.0',
+            port=5000,
+            debug=False,
+            use_reloader=True,
+            threaded=True
+        )
+    except KeyboardInterrupt:
+        print("\n\n🛑 Servidor detenido por usuario.")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"❌ Error fatal: {e}")
+        sys.exit(1)

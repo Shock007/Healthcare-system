@@ -309,28 +309,27 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
         let documentoActual = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                cargarDatos();
+            }
+        });
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
+            const user = AUTH_UTILS.getUser();
+            if (!user) {
                 window.location.href = 'login.html';
                 return false;
             }
-
-            const userData = JSON.parse(user);
             
-            // Solo médicos pueden editar
-            if (!['medico', 'admin'].includes(userData.rol)) {
-                alert('Solo médicos pueden editar historias clínicas');
+            if (!['medico', 'admin'].includes(user.rol)) {
+                UI_UTILS.showAlert('Solo médicos pueden editar historias clínicas', 'danger');
                 window.location.href = 'login.html';
                 return false;
             }
@@ -349,30 +348,21 @@
             documentoActual = getDocumentoFromURL();
 
             if (!documentoActual) {
-                alert('No se especificó el documento del paciente');
+                UI_UTILS.showAlert('No se especificó el documento del paciente', 'danger');
                 window.history.back();
                 return;
             }
 
-            const token = sessionStorage.getItem('token');
-
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documentoActual}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documentoActual));
+                if(paciente) {
                     llenarFormulario(paciente);
                 } else {
-                    alert('Error al cargar los datos del paciente');
+                    UI_UTILS.showAlert('Error al cargar los datos del paciente', 'danger');
                     window.history.back();
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error de conexión', 'danger');
             }
         }
 
@@ -413,8 +403,6 @@
         document.getElementById('formEditar').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const token = sessionStorage.getItem('token');
-
             // Recopilar solo los campos modificados
             const datos = {};
             
@@ -450,25 +438,13 @@
             });
 
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documentoActual}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(datos)
-                });
-
-                if (response.ok) {
+                const response = await API_UTILS.put(ENDPOINTS.PACIENTES_UPDATE(documentoActual), datos);
+                if(response) {
                     const modal = new bootstrap.Modal(document.getElementById('modalExito'));
                     modal.show();
-                } else {
-                    const error = await response.json();
-                    alert('Error al actualizar: ' + (error.detail || 'Error desconocido'));
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert(`Error al actualizar: ${error.message}`, 'danger');
             }
         });
 
@@ -476,13 +452,6 @@
         function volverAVista() {
             window.location.href = `ver_historia_clinica.html?documento=${documentoActual}`;
         }
-
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                cargarDatos();
-            }
-        });
     </script>
 </body>
 </html>

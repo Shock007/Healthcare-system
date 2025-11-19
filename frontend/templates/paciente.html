@@ -156,48 +156,44 @@
         </div>
     </div>
 
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
-
+        // ==================== INICIALIZACIÓN ====================
         let currentDocument = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                cargarHistoria();
+            }
+        });
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
+            const user = AUTH_UTILS.getUser();
+            if (!user) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            
+            if (user.rol !== 'paciente') {
+                UI_UTILS.showAlert('Acceso denegado', 'danger');
                 window.location.href = 'login.html';
                 return false;
             }
 
-            const userData = JSON.parse(user);
-            
-            if (userData.rol !== 'paciente') {
-                alert('Acceso denegado');
-                window.location.href = 'login.html';
-                return false;
-            }
-
-            document.getElementById('userName').textContent = userData.nombres || userData.username;
-            
-            // Obtener documento vinculado
-            currentDocument = userData.documento_vinculado;
-            
+            document.getElementById('userName').textContent = user.nombres || user.username;
+            currentDocument = user.documento_vinculado;
             return true;
         }
 
         // ==================== LOGOUT ====================
         function logout() {
-            sessionStorage.clear();
+            AUTH_UTILS.clearAuth();
             window.location.href = 'login.html';
         }
 
         // ==================== CARGAR HISTORIA CLÍNICA ====================
         async function cargarHistoria() {
-            const token = sessionStorage.getItem('token');
-            
             if (!currentDocument) {
                 document.getElementById('loading').classList.add('d-none');
                 document.getElementById('noData').classList.remove('d-none');
@@ -205,24 +201,15 @@
             }
 
             try {
-                const response = await fetch(`${API_URL}/pacientes/${currentDocument}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(currentDocument));
+                if (paciente) {
                     mostrarHistoria(paciente);
-                } else if (response.status === 404) {
+                } else {
                     document.getElementById('loading').classList.add('d-none');
                     document.getElementById('noData').classList.remove('d-none');
-                } else {
-                    alert('Error al cargar la historia clínica');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al cargar la historia clínica', 'danger');
             }
         }
 
@@ -240,7 +227,7 @@
             const datosHTML = `
                 <div class="info-row"><span class="info-label">Tipo de Documento:</span><span class="info-value">${paciente.tipo_documento || 'N/A'}</span></div>
                 <div class="info-row"><span class="info-label">Número de Documento:</span><span class="info-value">${paciente.numero_documento}</span></div>
-                <div class="info-row"><span class="info-label">Fecha de Nacimiento:</span><span class="info-value">${paciente.fecha_nacimiento || 'N/A'}</span></div>
+                <div class="info-row"><span class="info-label">Fecha de Nacimiento:</span><span class="info-value">${UI_UTILS.formatDate(paciente.fecha_nacimiento)}</span></div>
                 <div class="info-row"><span class="info-label">Edad:</span><span class="info-value">${paciente.edad || 'N/A'} años</span></div>
                 <div class="info-row"><span class="info-label">Sexo:</span><span class="info-value">${paciente.sexo || 'N/A'}</span></div>
                 <div class="info-row"><span class="info-label">Grupo Sanguíneo:</span><span class="info-value">${paciente.grupo_sanguineo || 'N/A'}</span></div>
@@ -262,7 +249,7 @@
             // Encuentro
             const encuentroHTML = paciente.tipo_atencion ?
                 `<div class="info-row"><span class="info-label">Tipo de Atención:</span><span class="info-value">${paciente.tipo_atencion}</span></div>
-                 <div class="info-row"><span class="info-label">Fecha:</span><span class="info-value">${paciente.fecha_atencion ? new Date(paciente.fecha_atencion).toLocaleString() : 'N/A'}</span></div>
+                 <div class="info-row"><span class="info-label">Fecha:</span><span class="info-value">${UI_UTILS.formatDateTime(paciente.fecha_atencion)}</span></div>
                  <div class="info-row"><span class="info-label">Motivo:</span><span class="info-value">${paciente.motivo_consulta || 'N/A'}</span></div>
                  <div class="info-row"><span class="info-label">Profesional:</span><span class="info-value">${paciente.nombre_profesional || 'N/A'}</span></div>` :
                 `<p class="text-muted">No hay consultas registradas</p>`;
@@ -286,42 +273,13 @@
 
         // ==================== DESCARGAR PDF ====================
         async function descargarPDF() {
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/${currentDocument}/pdf`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Mi_Historia_Clinica_${currentDocument}_${new Date().toISOString().split('T')[0]}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
-                    alert('Error al generar el PDF');
-                }
+                await API_UTILS.downloadFile(ENDPOINTS.PACIENTES_PDF(currentDocument), `Mi_Historia_Clinica_${currentDocument}.pdf`);
+                UI_UTILS.showAlert('PDF descargado exitosamente', 'success');
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al generar el PDF', 'danger');
             }
         }
-
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                cargarHistoria();
-            }
-        });
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

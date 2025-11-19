@@ -216,110 +216,81 @@
         </div>
     </div>
 
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
         let modalResultados;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                listarPacientes();
+                modalResultados = new bootstrap.Modal(document.getElementById('modalResultados'));
+            }
+        });
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
+            const user = AUTH_UTILS.getUser();
+            if (!user) {
                 window.location.href = 'login.html';
                 return false;
             }
-
-            const userData = JSON.parse(user);
             
-            if (userData.rol !== 'resultados' && userData.rol !== 'admin') {
-                alert('Acceso denegado');
+            if (user.rol !== 'resultados' && user.rol !== 'admin') {
+                UI_UTILS.showAlert('Acceso denegado', 'danger');
                 window.location.href = 'login.html';
                 return false;
             }
 
-            document.getElementById('userName').textContent = userData.nombres || userData.username;
+            document.getElementById('userName').textContent = user.nombres || user.username;
             return true;
         }
 
         // ==================== LOGOUT ====================
         function logout() {
-            sessionStorage.clear();
+            AUTH_UTILS.clearAuth();
             window.location.href = 'login.html';
         }
 
         // ==================== BUSCAR PACIENTE ====================
         async function buscarPaciente() {
             const documento = document.getElementById('searchDoc').value.trim();
-            
             if (!documento) {
-                alert('Ingrese un número de documento');
+                UI_UTILS.showAlert('Ingrese un número de documento', 'warning');
                 return;
             }
-
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
-                    abrirModalResultados(paciente);
-                } else if (response.status === 404) {
-                    alert('Paciente no encontrado');
-                } else {
-                    alert('Error en la búsqueda');
-                }
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documento));
+                abrirModalResultados(paciente);
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Paciente no encontrado', 'danger');
             }
         }
 
         // ==================== BUSCAR POR NOMBRE ====================
         async function buscarPorNombre() {
             const nombre = document.getElementById('searchNombre').value.trim();
-            
             if (!nombre) {
-                alert('Ingrese un nombre');
+                UI_UTILS.showAlert('Ingrese un nombre', 'warning');
                 return;
             }
-
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/buscar/query?nombre=${encodeURIComponent(nombre)}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    mostrarResultadosBusqueda(pacientes);
-                }
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_SEARCH + `?nombre=${encodeURIComponent(nombre)}`);
+                mostrarResultadosBusqueda(pacientes);
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error en la búsqueda', 'danger');
             }
         }
 
         // ==================== MOSTRAR RESULTADOS BÚSQUEDA ====================
         function mostrarResultadosBusqueda(pacientes) {
             const resultsDiv = document.getElementById('searchResults');
-            
             if (pacientes.length === 0) {
                 resultsDiv.innerHTML = '<div class="alert alert-warning">No se encontraron pacientes</div>';
                 return;
             }
 
             let html = '<div class="table-responsive mt-3"><table class="table table-sm"><thead><tr><th>Documento</th><th>Nombre</th><th>Acción</th></tr></thead><tbody>';
-
             pacientes.forEach(p => {
                 html += `
                     <tr>
@@ -333,28 +304,17 @@
                     </tr>
                 `;
             });
-
             html += '</tbody></table></div>';
             resultsDiv.innerHTML = html;
         }
 
         // ==================== SELECCIONAR PACIENTE ====================
         async function seleccionarPaciente(documento) {
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
-                    abrirModalResultados(paciente);
-                }
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documento));
+                abrirModalResultados(paciente);
             } catch (error) {
-                console.error('Error:', error);
+                UI_UTILS.showAlert('Error al seleccionar el paciente', 'danger');
             }
         }
 
@@ -365,70 +325,38 @@
                 <strong>Documento:</strong> ${paciente.numero_documento}<br>
                 <strong>Edad:</strong> ${paciente.edad || 'N/A'} años
             `;
-            
             document.getElementById('pacienteDocumento').value = paciente.numero_documento;
-            document.getElementById('fechaExamen').value = new Date().toISOString().slice(0,16);
-            
-            if (!modalResultados) {
-                modalResultados = new bootstrap.Modal(document.getElementById('modalResultados'));
-            }
+            document.getElementById('fechaExamen').value = new Date().toISOString().slice(0, 16);
             modalResultados.show();
         }
 
         // ==================== GUARDAR RESULTADOS ====================
         async function guardarResultados() {
             const documento = document.getElementById('pacienteDocumento').value;
-            const token = sessionStorage.getItem('token');
-            
             const datos = {
                 resultados_examenes: document.getElementById('resultadosExamen').value,
                 procedimientos_realizados: document.getElementById('tipoExamen').value,
-                // Nota: En el backend estos campos se actualizan via PUT /pacientes/{documento}
             };
 
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documento}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(datos)
-                });
-
-                if (response.ok) {
-                    alert('Resultados guardados exitosamente');
-                    modalResultados.hide();
-                    document.getElementById('formResultados').reset();
-                    listarPacientes();
-                } else {
-                    alert('Error al guardar resultados');
-                }
+                await API_UTILS.put(ENDPOINTS.PACIENTES_UPDATE(documento), datos);
+                UI_UTILS.showAlert('Resultados guardados exitosamente', 'success');
+                modalResultados.hide();
+                document.getElementById('formResultados').reset();
+                listarPacientes();
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al guardar resultados', 'danger');
             }
         }
 
         // ==================== LISTAR PACIENTES ====================
         async function listarPacientes() {
-            const token = sessionStorage.getItem('token');
-            
             try {
-                const response = await fetch(`${API_URL}/pacientes?limit=50`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const pacientes = await response.json();
-                    mostrarListado(pacientes);
-                    document.getElementById('totalResultados').textContent = pacientes.length;
-                }
+                const pacientes = await API_UTILS.get(ENDPOINTS.PACIENTES_LIST + '?limit=50');
+                mostrarListado(pacientes);
+                document.getElementById('totalResultados').textContent = pacientes.length;
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al cargar pacientes', 'danger');
             }
         }
 
@@ -436,7 +364,6 @@
         function mostrarListado(pacientes) {
             const listDiv = document.getElementById('patientList');
             const tbody = document.getElementById('patientTableBody');
-            
             listDiv.classList.remove('d-none');
             
             let html = '';
@@ -445,7 +372,7 @@
                     <tr>
                         <td>${p.numero_documento}</td>
                         <td>${p.nombre_completo || `${p.primer_nombre} ${p.primer_apellido}`}</td>
-                        <td>${p.fecha_atencion ? new Date(p.fecha_atencion).toLocaleDateString() : 'N/A'}</td>
+                        <td>${p.fecha_atencion ? UI_UTILS.formatDate(p.fecha_atencion) : 'N/A'}</td>
                         <td>${p.tipo_atencion || 'N/A'}</td>
                         <td>
                             <button class="btn btn-sm btn-primary" onclick='seleccionarPaciente("${p.numero_documento}")'>
@@ -455,7 +382,6 @@
                     </tr>
                 `;
             });
-            
             tbody.innerHTML = html;
         }
 
@@ -463,15 +389,6 @@
         function mostrarFormularioResultados() {
             document.getElementById('searchDoc').focus();
         }
-
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                listarPacientes();
-            }
-        });
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

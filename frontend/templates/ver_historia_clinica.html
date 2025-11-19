@@ -170,24 +170,20 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script src="../static/js/config.js"></script>
     <script>
-        // ==================== CONFIGURACIÓN ====================
-        const API_URL = 'http://192.168.49.2:30800';
+        // ==================== INICIALIZACIÓN ====================
         let documentoActual = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                cargarHistoria();
+            }
+        });
 
         // ==================== VERIFICAR AUTENTICACIÓN ====================
         function checkAuth() {
-            const token = sessionStorage.getItem('token');
-            const user = sessionStorage.getItem('user');
-
-            if (!token || !user) {
-                window.location.href = 'login.html';
-                return false;
-            }
-
-            return true;
+            return AUTH_UTILS.isAuthenticated();
         }
 
         // ==================== OBTENER DOCUMENTO DE URL ====================
@@ -206,27 +202,16 @@
                 return;
             }
 
-            const token = sessionStorage.getItem('token');
-
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documentoActual}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const paciente = await response.json();
+                const paciente = await API_UTILS.get(ENDPOINTS.PACIENTES_DETAIL(documentoActual));
+                if (paciente) {
                     mostrarHistoria(paciente);
-                } else if (response.status === 404) {
+                } else {
                     document.getElementById('loading').classList.add('d-none');
                     document.getElementById('noData').classList.remove('d-none');
-                } else {
-                    alert('Error al cargar la historia clínica');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al cargar la historia clínica', 'danger');
             }
         }
 
@@ -246,7 +231,7 @@
                 <div class="info-row"><div class="info-label">Número de Documento:</div><div class="info-value">${p.numero_documento}</div></div>
                 <div class="info-row"><div class="info-label">Nombres:</div><div class="info-value">${p.primer_nombre || ''} ${p.segundo_nombre || ''}</div></div>
                 <div class="info-row"><div class="info-label">Apellidos:</div><div class="info-value">${p.primer_apellido || ''} ${p.segundo_apellido || ''}</div></div>
-                <div class="info-row"><div class="info-label">Fecha de Nacimiento:</div><div class="info-value">${p.fecha_nacimiento || 'N/A'}</div></div>
+                <div class="info-row"><div class="info-label">Fecha de Nacimiento:</div><div class="info-value">${UI_UTILS.formatDate(p.fecha_nacimiento)}</div></div>
                 <div class="info-row"><div class="info-label">Edad:</div><div class="info-value">${p.edad || 'N/A'} años</div></div>
                 <div class="info-row"><div class="info-label">Sexo:</div><div class="info-value">${p.sexo || 'N/A'}</div></div>
                 <div class="info-row"><div class="info-label">Género:</div><div class="info-value">${p.genero || 'N/A'}</div></div>
@@ -265,7 +250,7 @@
 
             // ATENCIÓN
             document.getElementById('seccionAtencion').innerHTML = `
-                <div class="info-row"><div class="info-label">Fecha de Atención:</div><div class="info-value">${p.fecha_atencion ? new Date(p.fecha_atencion).toLocaleString() : 'N/A'}</div></div>
+                <div class="info-row"><div class="info-label">Fecha de Atención:</div><div class="info-value">${UI_UTILS.formatDateTime(p.fecha_atencion)}</div></div>
                 <div class="info-row"><div class="info-label">Tipo de Atención:</div><div class="info-value">${p.tipo_atencion || 'N/A'}</div></div>
                 <div class="info-row"><div class="info-label">Motivo de Consulta:</div><div class="info-value">${p.motivo_consulta || 'N/A'}</div></div>
                 <div class="info-row"><div class="info-label">Enfermedad Actual:</div><div class="info-value">${p.enfermedad_actual || 'N/A'}</div></div>
@@ -335,7 +320,7 @@
                 <div class="info-row"><div class="info-label">Evolución Médica:</div><div class="info-value">${p.evolucion_medica || 'No registrada'}</div></div>
                 <div class="info-row"><div class="info-label">Estado de Egreso:</div><div class="info-value">${p.estado_egreso || 'N/A'}</div></div>
                 <div class="info-row"><div class="info-label">Referencia/Contrarreferencia:</div><div class="info-value">${p.referencia_contrarreferencia || 'N/A'}</div></div>
-                <div class="info-row"><div class="info-label">Fecha de Cierre:</div><div class="info-value">${p.fecha_cierre ? new Date(p.fecha_cierre).toLocaleString() : 'N/A'}</div></div>
+                <div class="info-row"><div class="info-label">Fecha de Cierre:</div><div class="info-value">${UI_UTILS.formatDateTime(p.fecha_cierre)}</div></div>
             `;
 
             // PROFESIONAL
@@ -345,7 +330,7 @@
                 <div class="info-row"><div class="info-label">Registro Médico:</div><div class="info-value">${p.registro_medico || 'N/A'}</div></div>
                 <div class="info-row"><div class="info-label">Cargo/Servicio:</div><div class="info-value">${p.cargo_servicio || 'N/A'}</div></div>
                 <div class="info-row"><div class="info-label">Responsable de Registro:</div><div class="info-value">${p.responsable_registro || 'N/A'}</div></div>
-                <div class="info-row"><div class="info-label">Fecha de Registro:</div><div class="info-value">${p.fecha_registro ? new Date(p.fecha_registro).toLocaleString() : 'N/A'}</div></div>
+                <div class="info-row"><div class="info-label">Fecha de Registro:</div><div class="info-value">${UI_UTILS.formatDateTime(p.fecha_registro)}</div></div>
             `;
         }
 
@@ -356,40 +341,13 @@
 
         // ==================== DESCARGAR PDF ====================
         async function descargarPDF() {
-            const token = sessionStorage.getItem('token');
-
             try {
-                const response = await fetch(`${API_URL}/pacientes/${documentoActual}/pdf`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `HC_${documentoActual}_${new Date().toISOString().split('T')[0]}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
-                    alert('Error al generar el PDF');
-                }
+                await API_UTILS.downloadFile(ENDPOINTS.PACIENTES_PDF(documentoActual), `HC_${documentoActual}.pdf`);
+                UI_UTILS.showAlert('PDF descargado exitosamente', 'success');
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error de conexión');
+                UI_UTILS.showAlert('Error al descargar el PDF', 'danger');
             }
         }
-
-        // ==================== INICIALIZAR ====================
-        window.addEventListener('DOMContentLoaded', () => {
-            if (checkAuth()) {
-                cargarHistoria();
-            }
-        });
     </script>
 </body>
 </html>

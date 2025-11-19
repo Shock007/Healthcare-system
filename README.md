@@ -34,7 +34,7 @@
 
 ### 🎓 Contexto Académico
 
-Este proyecto fue desarrollado como parte de la asignatura **"Arquitectura y Diseño de Sistemas Distribuidos Seguros para la Gestión de Historias Clínicas Electrónicas mediante Middleware y Estándares HL7"**, implementando las mejores prácticas en:
+Este proyecto fue desarrollado como parte de la asignatura **"Sistemas distribuidos"**, implementando las mejores prácticas en:
 
 - Arquitectura distribuida con fragmentación de datos
 - Seguridad mediante OAuth2 + JWT
